@@ -124,7 +124,7 @@ const MobileFooterToolbar: React.FC<{
         <div className="fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-900 border-t border-gray-200/8 z-30 md:hidden rounded-t-lg shadow-sm">
             <div className="flex items-center gap-1 p-1">
                 <div className="relative flex-grow flex items-center overflow-hidden">
-                    {showScrollArrows.left && <div className="absolute left-0 top-0 bottom-0 z-10 w-8 bg-gradient-to-r from-black/10 to-transparent flex items-center justify-start pointer-events-none"><ChevronLeftIcon className="w-5 h-5 text-gray-400/80" /></div>}
+                    {showScrollArrows.left && <div className="absolute left-0 top-0 bottom-0 z-10 w-8 bg-black/10 flex items-center justify-start pointer-events-none"><ChevronLeftIcon className="w-5 h-5 text-gray-400/80" /></div>}
                     <div ref={footerScrollRef} onScroll={checkScroll} className="overflow-x-auto whitespace-nowrap scrollbar-thin scrollbar-thumb-transparent scrollbar-track-transparent">
                         <div className="flex items-center gap-1 px-2">
                              <FooterButton icon={<GenerateIcon className="w-5 h-5"/>} label="Generate" value={`${settings.postCount} Posts`} onClick={() => onSheetToggle('postCount')} />
@@ -141,7 +141,7 @@ const MobileFooterToolbar: React.FC<{
                              <FooterButton icon={<CollageIcon className="w-5 h-5"/>} label="Overlay" onClick={() => onSheetToggle('overlay')} />
                         </div>
                     </div>
-                    {showScrollArrows.right && <div className="absolute right-0 top-0 bottom-0 z-10 w-8 bg-gradient-to-l from-black/10 to-transparent flex items-center justify-end pointer-events-none"><ChevronRightIcon className="w-5 h-5 text-gray-400/80" /></div>}
+                    {showScrollArrows.right && <div className="absolute right-0 top-0 bottom-0 z-10 w-8 bg-black/10 flex items-center justify-end pointer-events-none"><ChevronRightIcon className="w-5 h-5 text-gray-400/80" /></div>}
                 </div>
                 <div className="pl-1 pr-2 flex-shrink-0">
                     <button onClick={onGenerate} disabled={isLoading} className="w-20 h-20 bg-primary text-primary-text font-semibold rounded-xl disabled:opacity-60 flex flex-col items-center justify-center gap-1 shadow-sm hover:shadow-md transform transition-all text-sm">
