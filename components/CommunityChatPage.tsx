@@ -1,6 +1,6 @@
 
 
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useAuth } from '../src/contexts/AuthContext.tsx';
 
 // Declare the 'firebase' global variable to resolve TypeScript errors.
@@ -10,9 +10,23 @@ declare var firebase: any;
 const CommunityChatPage: React.FC = () => {
     const { user } = useAuth();
     const chatInitialized = useRef(false);
+    const [userProfiles, setUserProfiles] = useState<Record<string, { displayName: string; photoURL?: string }>>({});
 
     useEffect(() => {
-        if (chatInitialized.current || !user) return;
+        if (!user || chatInitialized.current) return;
+
+        const db = firebase.database();
+        const usersRef = db.ref('users');
+        const profilesListener = usersRef.on('value', (snapshot: any) => {
+            setUserProfiles(snapshot.val() || {});
+        });
+
+        // Cleanup listener on unmount
+        return () => usersRef.off('value', profilesListener);
+    }, [user]);
+
+    useEffect(() => {
+        if (chatInitialized.current || !user || Object.keys(userProfiles).length === 0) return;
 
         const initChat = async () => {
             const db = firebase.database();
@@ -35,10 +49,9 @@ const CommunityChatPage: React.FC = () => {
             let userPresenceRef: any | null = null;
             let typingTimer: ReturnType<typeof setTimeout> | null = null;
             let lastDayLabel: string | null = null;
-            let replyContext: { name: string; text: string } | null = null;
+            let replyContext: { uid: string; text: string } | null = null;
             let usersCount = 1;
 
-            const colorPalette = ['#ef4444', '#f97316', '#84cc16', '#10b981', '#06b6d4', '#6366f1', '#d946ef', '#f43f5e'];
             const stringToHash = (str: string) => {
               let hash = 0;
               for (let i = 0; i < str.length; i++) {
@@ -46,6 +59,7 @@ const CommunityChatPage: React.FC = () => {
               }
               return hash;
             }
+            const colorPalette = ['#ef4444', '#f97316', '#84cc16', '#10b981', '#06b6d4', '#6366f1', '#d946ef', '#f43f5e'];
             const getColorForName = (name: string) => {
               const hash = stringToHash(name);
               const index = Math.abs(hash) % colorPalette.length;
@@ -66,79 +80,46 @@ const CommunityChatPage: React.FC = () => {
               }
             });
 
-            function joinRoom(name: string) {
-              (window as any)._chatName = name;
-              $msg.disabled = false;
-              $send.disabled = false;
-              $imgBtn.disabled = false;
-              if (listener && messagesRef) {
-                messagesRef.off('child_added', listener);
-              }
-              lastDayLabel = null;
-              $messages.innerHTML = '';
-              $info.textContent = 'Loading messages…';
+            function joinRoom(uid: string) {
+              (window as any)._chatUid = uid;
+              $msg.disabled = false; $send.disabled = false; $imgBtn.disabled = false;
+              if (listener && messagesRef) messagesRef.off('child_added', listener);
+              lastDayLabel = null; $messages.innerHTML = ''; $info.textContent = 'Loading messages…';
               messagesRef = db.ref('rooms/' + currentRoom + '/messages').orderByChild('ts').limitToLast(200);
-              
               const initialMessageKeys = new Set();
               
               messagesRef.once('value').then((snapshot: any) => {
                   const initialMessages: any[] = [];
                   snapshot.forEach((childSnap: any) => {
-                      const key = childSnap.key;
-                      if(key) {
-                          initialMessageKeys.add(key);
-                          initialMessages.push({ key, ...childSnap.val() });
-                      }
+                      const key = childSnap.key; if(key) { initialMessageKeys.add(key); initialMessages.push({ key, ...childSnap.val() }); }
                   });
-
                   initialMessages.sort((a, b) => a.ts - b.ts);
-                  
                   initialMessages.forEach(msg => {
-                      if (msg.name !== (window as any)._chatName) {
-                          db.ref('rooms/' + currentRoom + '/messages/' + msg.key + '/readBy/' + (window as any)._chatName).set(true);
-                      }
+                      if (msg.uid !== (window as any)._chatUid) db.ref('rooms/' + currentRoom + '/messages/' + msg.key + '/readBy/' + (window as any)._chatUid).set(true);
                       addMessage(msg.key, msg);
                   });
-
                   $info.textContent = '';
-                  
-                  setTimeout(() => {
-                      $messages.scrollTop = $messages.scrollHeight;
-                  }, 50);
+                  setTimeout(() => { $messages.scrollTop = $messages.scrollHeight; }, 50);
 
                   listener = messagesRef!.on('child_added', (snap: any) => {
-                      const key = snap.key;
-                      if (key && !initialMessageKeys.has(key)) {
-                          const m = snap.val();
-                          if (m.name !== (window as any)._chatName) {
-                              db.ref('rooms/' + currentRoom + '/messages/' + key + '/readBy/' + (window as any)._chatName).set(true);
-                          }
-                          addMessage(key, m);
-                      }
+                      const key = snap.key; if (key && !initialMessageKeys.has(key)) { const m = snap.val(); if (m.uid !== (window as any)._chatUid) db.ref('rooms/' + currentRoom + '/messages/' + key + '/readBy/' + (window as any)._chatUid).set(true); addMessage(key, m); }
                   });
               });
 
               if (userPresenceRef) userPresenceRef.remove();
-              userPresenceRef = db.ref('rooms/' + currentRoom + '/users/' + (window as any)._chatName);
-              userPresenceRef.set(true);
-              userPresenceRef.onDisconnect().remove();
-              const usersListRef = db.ref('rooms/' + currentRoom + '/users');
-              usersListRef.on('value', (snap: any) => {
-                usersCount = snap.numChildren() || 1;
-              });
+              userPresenceRef = db.ref('rooms/' + currentRoom + '/users/' + uid);
+              userPresenceRef.set(true); userPresenceRef.onDisconnect().remove();
+              db.ref('rooms/' + currentRoom + '/users').on('value', (snap: any) => { usersCount = snap.numChildren() || 1; });
 
               if (typingRef) typingRef.remove();
-              typingRef = db.ref('rooms/' + currentRoom + '/typing/' + (window as any)._chatName);
+              typingRef = db.ref('rooms/' + currentRoom + '/typing/' + uid);
               typingRef.onDisconnect().remove();
 
               db.ref('rooms/' + currentRoom + '/typing').on('value', (snap: any) => {
-                const names: string[] = [];
-                snap.forEach((child: any) => {
-                  if (child.val() && child.key !== (window as any)._chatName) {
-                    names.push(child.key!);
-                  }
-                });
-                if (names.length > 0) {
+                const uids: string[] = [];
+                snap.forEach((child: any) => { if (child.val() && child.key !== (window as any)._chatUid) uids.push(child.key!); });
+                if (uids.length > 0) {
+                  const names = uids.map(uid => userProfiles[uid]?.displayName || 'Someone');
                   $typingIndicator.style.display = 'block';
                   $typingIndicator.textContent = names.length === 1 ? `${names[0]} is typing…` : 'Several people are typing…';
                 } else {
@@ -147,199 +128,109 @@ const CommunityChatPage: React.FC = () => {
               });
               $msg.addEventListener('input', () => {
                 if (!currentRoom || !typingRef) return;
-                typingRef.set(true);
-                if(typingTimer) clearTimeout(typingTimer);
-                typingTimer = setTimeout(() => {
-                  typingRef!.set(false);
-                }, 1500);
+                typingRef.set(true); if(typingTimer) clearTimeout(typingTimer);
+                typingTimer = setTimeout(() => { typingRef!.set(false); }, 1500);
               });
             }
 
             function sendMessage() {
               const text = ($msg.value || '').trim();
-              if (!text || !currentRoom) return;
-              if (text.length > 1000) {
-                alert('Max 1000 characters');
-                return;
-              }
-              const payload: any = {
-                name: (window as any)._chatName || 'Guest',
-                text: text,
-                ts: Date.now(),
-                img: null
-              };
-              if (replyContext) {
-                payload.replyName = replyContext.name;
-                payload.replyText = replyContext.text;
-              }
-              db.ref('rooms/' + currentRoom + '/messages').push(payload).catch((err: any) => {
-                alert('Write failed: ' + err.message);
-              });
-              $msg.value = '';
-              if (replyContext) {
-                replyContext = null;
-                $replyPreview.style.display = 'none';
-              }
+              if ((!text && !replyContext) || !currentRoom) return;
+              if (text.length > 1000) { alert('Max 1000 characters'); return; }
+              const payload: any = { uid: (window as any)._chatUid, text, ts: Date.now(), img: null };
+              if (replyContext) { payload.replyToUid = replyContext.uid; payload.replyText = replyContext.text; }
+              db.ref('rooms/' + currentRoom + '/messages').push(payload).catch((err: any) => { alert('Write failed: ' + err.message); });
+              $msg.value = ''; if (replyContext) { replyContext = null; $replyPreview.style.display = 'none'; }
               if (typingRef) typingRef.set(false);
             }
 
             function handleImage() {
-              const file = $imgUpload.files?.[0];
-              if (!file || !currentRoom) return;
-              if (file.size > 2 * 1024 * 1024) { // 2MB limit
-                alert('Max 2MB image size');
-                $imgUpload.value = '';
-                return;
-              }
+              const file = $imgUpload.files?.[0]; if (!file || !currentRoom) return;
+              if (file.size > 2 * 1024 * 1024) { alert('Max 2MB image size'); $imgUpload.value = ''; return; }
               const reader = new FileReader();
               reader.onload = () => {
-                const url = reader.result;
-                const payload: any = {
-                  name: (window as any)._chatName || 'Guest',
-                  text: '',
-                  img: url,
-                  ts: Date.now()
-                };
-                if (replyContext) {
-                  payload.replyName = replyContext.name;
-                  payload.replyText = replyContext.text;
-                }
+                const payload: any = { uid: (window as any)._chatUid, text: '', img: reader.result, ts: Date.now() };
+                if (replyContext) { payload.replyToUid = replyContext.uid; payload.replyText = replyContext.text; }
                 db.ref('rooms/' + currentRoom + '/messages').push(payload);
-                $imgUpload.value = '';
-                if (replyContext) {
-                  replyContext = null;
-                  $replyPreview.style.display = 'none';
-                }
+                $imgUpload.value = ''; if (replyContext) { replyContext = null; $replyPreview.style.display = 'none'; }
                 if (typingRef) typingRef.set(false);
               };
               reader.readAsDataURL(file);
             }
 
-            function initials(name: string) {
-              return name.trim().split(/\s+/).map(s => s[0]).join('').slice(0, 2).toUpperCase();
-            }
+            function initials(name: string) { return name.trim().split(/\s+/).map(s => s[0]).join('').slice(0, 2).toUpperCase(); }
 
             function addMessage(key: string, m: any) {
-              const { name, text, ts, img, replyName, replyText, readBy } = m;
-              const date = new Date(ts || Date.now());
-              const dayStr = date.toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long' });
+              const { uid, text, ts, img, replyToUid, replyText, readBy } = m;
+              const author = userProfiles[uid];
+              if (!author) return;
+              const { displayName: name, photoURL } = author;
+              const date = new Date(ts || Date.now()); const dayStr = date.toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long' });
               if (dayStr !== lastDayLabel) {
-                const sep = document.createElement('div');
-                sep.className = 'relative text-center my-6';
+                const sep = document.createElement('div'); sep.className = 'relative text-center my-6';
                 sep.innerHTML = `<hr class="absolute top-1/2 left-0 w-full border-gray-200 dark:border-gray-700" /><span class="relative bg-gray-50 dark:bg-gray-900 px-3 text-xs font-semibold text-gray-500">${dayStr}</span>`;
-                $messages.appendChild(sep);
-                lastDayLabel = dayStr;
+                $messages.appendChild(sep); lastDayLabel = dayStr;
               }
-              const isSelf = (name === (window as any)._chatName);
+              const isSelf = (uid === (window as any)._chatUid);
               
-              const row = document.createElement('div');
-              row.className = `flex items-start gap-3 group`;
-              if(isSelf) row.classList.add('flex-row-reverse');
+              const row = document.createElement('div'); row.className = `flex items-start gap-3 group ${isSelf ? 'flex-row-reverse' : ''}`;
               
               const avatar = document.createElement('div');
-              avatar.className = 'w-9 h-9 rounded-full flex items-center justify-center font-bold text-white flex-shrink-0';
-              avatar.textContent = initials(name);
-              avatar.style.backgroundColor = isSelf ? 'var(--app-primary-color)' : getColorForName(name);
-
-              const bubbleContainer = document.createElement('div');
-              bubbleContainer.className = `max-w-lg flex flex-col ${isSelf ? 'items-end' : 'items-start'}`;
-
-              if (!isSelf) {
-                  const nameEl = document.createElement('div');
-                  nameEl.className = 'text-xs font-bold mb-1';
-                  nameEl.textContent = name;
-                  nameEl.style.color = getColorForName(name);
-                  bubbleContainer.appendChild(nameEl);
+              avatar.className = 'w-9 h-9 rounded-full flex items-center justify-center font-bold text-white flex-shrink-0 overflow-hidden';
+              if (photoURL) {
+                avatar.innerHTML = `<img src="${photoURL}" class="w-full h-full object-cover" alt="${name}"/>`;
+              } else {
+                avatar.textContent = initials(name);
+                avatar.style.backgroundColor = isSelf ? 'var(--app-primary-color)' : getColorForName(name);
               }
-
-              const bubble = document.createElement('div');
-              bubble.className = `p-3 rounded-xl relative ${isSelf ? 'bg-primary text-primary-text rounded-br-none' : 'bg-white dark:bg-gray-700 rounded-bl-none'}`;
               
-              if (replyName && replyText) {
+              const bubbleContainer = document.createElement('div'); bubbleContainer.className = `max-w-lg flex flex-col ${isSelf ? 'items-end' : 'items-start'}`;
+              if (!isSelf) { const nameEl = document.createElement('div'); nameEl.className = 'text-xs font-bold mb-1'; nameEl.textContent = name; nameEl.style.color = getColorForName(name); bubbleContainer.appendChild(nameEl); }
+
+              const bubble = document.createElement('div'); bubble.className = `p-3 rounded-xl relative ${isSelf ? 'bg-primary text-primary-text rounded-br-none' : 'bg-white dark:bg-gray-700 rounded-bl-none'}`;
+              
+              if (replyToUid && replyText) {
                   const replyBlock = document.createElement('div');
                   replyBlock.className = 'mb-2 p-2 border-l-2 opacity-80';
                   replyBlock.style.borderColor = isSelf ? 'rgba(255,255,255,0.5)' : 'var(--app-primary-color)';
+                  const replyName = userProfiles[replyToUid]?.displayName || 'User';
                   replyBlock.innerHTML = `<strong class="text-xs">${replyName}</strong><p class="text-sm line-clamp-2">${replyText}</p>`;
                   bubble.appendChild(replyBlock);
               }
 
-              if (text && text.trim() !== '') {
-                const body = document.createElement('p');
-                body.className = 'text-base break-words whitespace-pre-wrap';
-                body.textContent = text;
-                bubble.appendChild(body);
-              }
-              if (img) {
-                const im = document.createElement('img');
-                im.src = img;
-                im.alt = 'image';
-                im.loading = 'lazy';
-                im.className = "rounded-lg mt-2 max-w-xs cursor-pointer";
-                im.onclick = () => { /* Add fullscreen view logic here if desired */ };
-                bubble.appendChild(im);
-              }
+              if (text && text.trim()) { const body = document.createElement('p'); body.className = 'text-base break-words whitespace-pre-wrap'; body.textContent = text; bubble.appendChild(body); }
+              if (img) { const im = document.createElement('img'); im.src = img; im.alt = 'image'; im.loading = 'lazy'; im.className = "rounded-lg mt-2 max-w-xs cursor-pointer"; im.onclick = () => {}; bubble.appendChild(im); }
               
-              const meta = document.createElement('div');
-              meta.className = 'text-xs opacity-70 mt-1 flex items-center gap-1';
-              if(isSelf) meta.classList.add('justify-end');
-              
-              const timeSpan = document.createElement('span');
-              timeSpan.textContent = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-
-              const replyIcon = document.createElement('button');
-              replyIcon.className = 'opacity-0 group-hover:opacity-60 hover:!opacity-100 transition-opacity';
-              replyIcon.title = 'Reply to this message';
+              const meta = document.createElement('div'); meta.className = `text-xs opacity-70 mt-1 flex items-center gap-1 ${isSelf ? 'justify-end' : ''}`;
+              const timeSpan = document.createElement('span'); timeSpan.textContent = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+              const replyIcon = document.createElement('button'); replyIcon.className = 'opacity-0 group-hover:opacity-60 hover:!opacity-100 transition-opacity'; replyIcon.title = 'Reply';
               replyIcon.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4"><path fill-rule="evenodd" d="M7.793 2.232a.75.75 0 01-.025 1.06L3.622 7.25h10.128a.75.75 0 010 1.5H3.622l4.146 3.957a.75.75 0 01-1.036 1.085l-5.5-5.25a.75.75 0 010-1.085l5.5-5.25a.75.75 0 011.06.025z" clip-rule="evenodd" /></svg>`;
               replyIcon.addEventListener('click', (e) => {
-                e.stopPropagation();
-                const previewText = text && text.trim() ? text.trim().slice(0, 120) : (img ? '[image]' : '');
-                replyContext = { name: name, text: previewText };
-                $replyPreviewName.textContent = name;
-                $replyPreviewText.textContent = previewText;
-                $replyPreview.style.display = 'flex';
-                $msg.focus();
+                e.stopPropagation(); const previewText = text?.trim().slice(0, 120) || (img ? '[image]' : '');
+                replyContext = { uid, text: previewText };
+                $replyPreviewName.textContent = name; $replyPreviewText.textContent = previewText;
+                $replyPreview.style.display = 'flex'; $msg.focus();
               });
 
-              if (isSelf) {
-                const tickSpan = document.createElement('span');
-                let count = 1; if (readBy) count = Object.keys(readBy).length;
-                let symbol = '✔'; let color = 'currentColor';
-                if(count < usersCount) { symbol = '✔✔'; }
-                if(count >= usersCount) { symbol = '✔✔'; color = '#3b82f6';}
-                tickSpan.textContent = symbol;
-                tickSpan.style.color = color;
-                meta.appendChild(tickSpan);
-                meta.appendChild(timeSpan);
-                bubbleContainer.appendChild(replyIcon);
-              } else {
-                meta.appendChild(timeSpan);
-                bubbleContainer.appendChild(replyIcon);
-              }
-
-              bubbleContainer.appendChild(bubble);
-              bubbleContainer.appendChild(meta);
-              
-              row.appendChild(avatar);
-              row.appendChild(bubbleContainer);
+              if (isSelf) { const tickSpan = document.createElement('span'); let count = readBy ? Object.keys(readBy).length : 1; let symbol = '✔'; let color = 'currentColor'; if(count < usersCount) symbol = '✔✔'; if(count >= usersCount) { symbol = '✔✔'; color = '#3b82f6'; } tickSpan.textContent = symbol; tickSpan.style.color = color; meta.appendChild(tickSpan); meta.appendChild(timeSpan); bubbleContainer.appendChild(replyIcon); } else { meta.appendChild(timeSpan); bubbleContainer.appendChild(replyIcon); }
+              bubbleContainer.appendChild(bubble); bubbleContainer.appendChild(meta);
+              row.appendChild(avatar); row.appendChild(bubbleContainer);
               $messages.appendChild(row);
-
               const isScrolledToBottom = $messages.scrollHeight - $messages.clientHeight <= $messages.scrollTop + 150;
-              if (isScrolledToBottom || isSelf) {
-                  $messages.scrollTop = $messages.scrollHeight;
-              }
+              if (isScrolledToBottom || isSelf) $messages.scrollTop = $messages.scrollHeight;
             }
 
-            if (user && user.displayName) {
-                joinRoom(user.displayName);
+            if (user && user.uid) {
+                joinRoom(user.uid);
             } else {
-                 if ($info) $info.textContent = 'You must have a display name to join the chat.';
+                 if ($info) $info.textContent = 'You must be logged in to join the chat.';
             }
         };
 
         initChat();
         chatInitialized.current = true;
 
-    }, [user]);
+    }, [user, userProfiles]);
 
     return (
         <div className="chat-container h-[calc(100vh-5rem)] p-0 m-0">

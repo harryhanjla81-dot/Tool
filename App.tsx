@@ -28,6 +28,7 @@ import { AuthProvider } from './src/contexts/AuthContext.tsx';
 import { ThemeProvider } from './src/contexts/ThemeContext.tsx';
 import { ApiKeysProvider, useApiKeys } from './src/contexts/ApiKeysContext.tsx';
 import { setApiKey as setGeminiApiKey } from './services/geminiService.ts';
+import UserAvatar from './components/UserAvatar.tsx';
 
 
 const ApiKeyInitializer: React.FC = () => {

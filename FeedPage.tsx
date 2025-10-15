@@ -4,6 +4,7 @@ import { useNotification } from './src/contexts/NotificationContext.tsx';
 import { FeedPost } from './types.ts';
 import Spinner from './components/Spinner.tsx';
 import { ThumbsUpIcon, ChatBubbleIcon, TrashIcon } from './components/IconComponents.tsx';
+import UserAvatar from './components/UserAvatar.tsx';
 
 // FIX: Replaced `declare var firebase: any` with a more specific declaration to resolve namespace errors.
 // Declare firebase global to avoid TypeScript errors, as it's loaded via script tag
@@ -12,6 +13,7 @@ declare namespace firebase {
     interface User {
         uid: string;
         displayName: string | null;
+        photoURL: string | null;
     }
 
     interface DatabaseReference {
@@ -54,34 +56,6 @@ declare namespace firebase {
 
 
 // --- HELPER & UTILITY COMPONENTS ---
-
-const colorPalette = ['#ef4444', '#f97316', '#84cc16', '#10b981', '#06b6d4', '#6366f1', '#d946ef', '#f43f5e'];
-const stringToHash = (str: string = '') => {
-  let hash = 0;
-  for (let i = 0; i < str.length; i++) {
-    hash = str.charCodeAt(i) + ((hash << 5) - hash);
-  }
-  return hash;
-}
-const getColorForName = (name: string = 'User') => {
-  const hash = stringToHash(name);
-  const index = Math.abs(hash) % colorPalette.length;
-  return colorPalette[index];
-}
-
-const UserAvatar: React.FC<{ name: string | null }> = ({ name }) => {
-    const userName = name || 'U';
-    const initials = userName.trim().split(/\s+/).map(s => s[0]).join('').slice(0, 2).toUpperCase();
-    return (
-        <div 
-            className="w-10 h-10 rounded-full flex items-center justify-center font-bold text-white flex-shrink-0" 
-            style={{ backgroundColor: getColorForName(userName) }}
-            title={userName}
-        >
-            {initials}
-        </div>
-    );
-};
 
 const formatTimeAgo = (timestamp: number): string => {
     if (!timestamp) return '...';
@@ -179,6 +153,7 @@ const CreatePost: React.FC<{ onPostCreated: () => void }> = ({ onPostCreated }) 
             const post: Omit<FeedPost, 'id'> = {
                 uid: user!.uid,
                 authorName: user!.displayName || 'Anonymous',
+                authorPhotoURL: user!.photoURL || '',
                 caption: caption.trim(),
                 // FIX: Cast ServerValue.TIMESTAMP to 'any' to satisfy the FeedPost['timestamp'] type of 'number'. Firebase correctly interprets this server-side placeholder.
                 timestamp: firebase.database.ServerValue.TIMESTAMP as any,
@@ -208,7 +183,7 @@ const CreatePost: React.FC<{ onPostCreated: () => void }> = ({ onPostCreated }) 
     return (
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 border dark:border-gray-700">
             <div className="flex gap-4">
-                <UserAvatar name={user?.displayName || null} />
+                <UserAvatar name={user?.displayName || null} photoURL={user?.photoURL} />
                 <textarea 
                     value={caption}
                     onChange={e => setCaption(e.target.value)}
@@ -280,6 +255,7 @@ const PostCard: React.FC<PostCardProps> = ({ post, currentUserId, currentUser, o
         const commentData = {
             uid: currentUser.uid,
             authorName: currentUser.displayName || 'Anonymous',
+            authorPhotoURL: currentUser.photoURL || '',
             text: newComment.trim(),
             timestamp: firebase.database.ServerValue.TIMESTAMP
         };
@@ -306,7 +282,7 @@ const PostCard: React.FC<PostCardProps> = ({ post, currentUserId, currentUser, o
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 border dark:border-gray-700">
             {/* Header */}
             <div className="flex items-center gap-3">
-                <UserAvatar name={post.authorName} />
+                <UserAvatar name={post.authorName} photoURL={post.authorPhotoURL} />
                 <div className="flex-grow">
                     <p className="font-semibold text-gray-800 dark:text-gray-100">{post.authorName}</p>
                     <p className="text-xs text-gray-500 dark:text-gray-400">{formatTimeAgo(post.timestamp)}</p>
@@ -342,7 +318,7 @@ const PostCard: React.FC<PostCardProps> = ({ post, currentUserId, currentUser, o
                     <div className="space-y-3 max-h-60 overflow-y-auto scrollbar-thin pr-2">
                         {commentsArray.length > 0 ? commentsArray.map(comment => (
                             <div key={comment.id} className="flex items-start gap-2 group">
-                                <UserAvatar name={comment.authorName} />
+                                <UserAvatar name={comment.authorName} photoURL={comment.authorPhotoURL} />
                                 <div className="flex-grow bg-gray-100 dark:bg-gray-700 p-2 rounded-lg">
                                     <div className="flex justify-between items-center">
                                         <span className="font-semibold text-sm">{comment.authorName}</span>
@@ -361,7 +337,7 @@ const PostCard: React.FC<PostCardProps> = ({ post, currentUserId, currentUser, o
 
                     {/* New comment form */}
                     <form onSubmit={handlePostComment} className="flex items-start gap-2 pt-3 border-t dark:border-gray-600">
-                         <UserAvatar name={currentUser?.displayName || null} />
+                         <UserAvatar name={currentUser?.displayName || null} photoURL={currentUser?.photoURL} />
                          <div className="flex-grow">
                              <input 
                                 value={newComment}

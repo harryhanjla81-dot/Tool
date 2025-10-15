@@ -7,6 +7,7 @@ import { useFacebookPage } from '../src/contexts/FacebookPageContext.tsx';
 import Spinner from './Spinner.tsx';
 import ApiKeyManager from './ApiKeyManager.tsx';
 import { useAuth } from '../src/contexts/AuthContext.tsx';
+import UserAvatar from './UserAvatar.tsx';
 
 // --- THEME SETTINGS COMPONENT ---
 const FormRow: React.FC<{ label: string; children: React.ReactNode }> = ({ label, children }) => (
@@ -136,11 +137,14 @@ const ProfileSettings: React.FC = () => {
 
     return (
         <div className="p-6 space-y-6">
-            <div className="p-4 bg-gray-100 dark:bg-gray-700/50 rounded-lg border dark:border-gray-600">
-                <h3 className="font-bold text-lg mb-2 text-gray-800 dark:text-gray-100">User Information</h3>
-                <div className="space-y-1 text-sm">
-                    <p><strong className="text-gray-600 dark:text-gray-300">Name:</strong> {user?.displayName || 'Not set'}</p>
-                    <p><strong className="text-gray-600 dark:text-gray-300">Email:</strong> {user?.email || 'Not set'}</p>
+            <div className="p-4 bg-gray-100 dark:bg-gray-700/50 rounded-lg border dark:border-gray-600 flex items-center gap-4">
+                <UserAvatar name={user?.displayName} photoURL={user?.photoURL} className="w-20 h-20 text-3xl" />
+                <div>
+                    <h3 className="font-bold text-lg mb-2 text-gray-800 dark:text-gray-100">User Information</h3>
+                    <div className="space-y-1 text-sm">
+                        <p><strong className="text-gray-600 dark:text-gray-300">Name:</strong> {user?.displayName || 'Not set'}</p>
+                        <p><strong className="text-gray-600 dark:text-gray-300">Email:</strong> {user?.email || 'Not set'}</p>
+                    </div>
                 </div>
             </div>
              <div className="p-4 bg-gray-100 dark:bg-gray-700/50 rounded-lg border dark:border-gray-600">

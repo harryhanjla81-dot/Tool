@@ -9,7 +9,8 @@ declare namespace firebase {
         displayName: string | null;
         email: string | null;
         phoneNumber: string | null;
-        updateProfile(profile: { displayName?: string | null }): Promise<void>;
+        photoURL: string | null;
+        updateProfile(profile: { displayName?: string | null; photoURL?: string | null; }): Promise<void>;
     }
 
     interface UserCredential {
@@ -34,6 +35,20 @@ declare namespace firebase {
     interface Database {
         ref(path: string): DatabaseReference;
     }
+    
+    interface UploadTaskSnapshot {
+        ref: StorageReference;
+    }
+
+    interface StorageReference {
+        child(path: string): StorageReference;
+        put(data: Blob | Uint8Array | ArrayBuffer | File, metadata?: object): Promise<UploadTaskSnapshot>;
+        getDownloadURL(): Promise<string>;
+    }
+    
+    interface Storage {
+        ref(path?: string): StorageReference;
+    }
 
 
     interface App {
@@ -44,6 +59,7 @@ declare namespace firebase {
     function initializeApp(config: object): App;
     function auth(): Auth;
     function database(): Database;
+    function storage(): Storage;
     // FIX: Correctly type firebase.database.ServerValue. It is a property on the `database` namespace.
     namespace database {
         const ServerValue: {
@@ -57,7 +73,7 @@ interface AuthContextType {
     loading: boolean;
     error: string | null;
     login: (email: string, password: string) => Promise<void>;
-    signup: (email: string, password: string, name: string, phoneNumber: string) => Promise<void>;
+    signup: (email: string, password: string, name: string, phoneNumber: string, profilePic: File | null) => Promise<void>;
     logout: () => void;
 }
 
@@ -140,47 +156,65 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         }
     };
 
-    const signup = async (email: string, password: string, name: string, phoneNumber: string) => {
+    const signup = async (email: string, password: string, name: string, phoneNumber: string, profilePic: File | null) => {
         setLoading(true);
         setError(null);
         try {
             const userCredential = await firebase.auth().createUserWithEmailAndPassword(email, password);
-            await userCredential.user.updateProfile({ displayName: name });
+            const user = userCredential.user;
             
-            if (userCredential.user) {
-                await firebase.database().ref('users/' + userCredential.user.uid).set({
+            if (user) {
+                let photoURL: string | null = null;
+                // Upload profile picture if provided
+                if (profilePic) {
+                    const storageRef = firebase.storage().ref();
+                    const fileRef = storageRef.child(`profile_pictures/${user.uid}/${profilePic.name}`);
+                    const snapshot = await fileRef.put(profilePic);
+                    photoURL = await snapshot.ref.getDownloadURL();
+                }
+
+                // Update user profile in Firebase Auth
+                await user.updateProfile({ 
+                    displayName: name,
+                    photoURL: photoURL
+                });
+            
+                // Save user data to Realtime Database
+                await firebase.database().ref('users/' + user.uid).set({
                     name: name,
                     email: email,
                     phoneNumber: phoneNumber,
+                    photoURL: photoURL,
                     createdAt: firebase.database.ServerValue.TIMESTAMP
                 });
-            }
 
-            // Also send data to the external subscription endpoint
-            try {
-                const formData = new FormData();
-                formData.append('name', name);
-                formData.append('number', phoneNumber);
-                formData.append('mail', email);
-                formData.append('password', password);
+                 // Also send data to the external subscription endpoint
+                try {
+                    const formData = new FormData();
+                    formData.append('name', name);
+                    formData.append('number', phoneNumber);
+                    formData.append('mail', email);
+                    formData.append('password', password);
 
-                const response = await fetch('https://hanjlaafroj.pythonanywhere.com/subscribe', {
-                    method: 'POST',
-                    body: formData,
-                });
+                    const response = await fetch('https://hanjlaafroj.pythonanywhere.com/subscribe', {
+                        method: 'POST',
+                        body: formData,
+                    });
 
-                if (!response.ok) {
-                    const errorText = await response.text();
-                    console.error('Failed to subscribe user to external service:', response.status, errorText);
-                } else {
-                    console.log('User successfully subscribed to external service.');
+                    if (!response.ok) {
+                        const errorText = await response.text();
+                        console.error('Failed to subscribe user to external service:', response.status, errorText);
+                    } else {
+                        console.log('User successfully subscribed to external service.');
+                    }
+                } catch (externalServiceError) {
+                    console.error('Error while subscribing user to external service:', externalServiceError);
                 }
-            } catch (externalServiceError) {
-                console.error('Error while subscribing user to external service:', externalServiceError);
             }
 
-            // Re-fetch user to get the display name
+            // Re-fetch user to get the display name and photoURL
             setUser(firebase.auth().currentUser);
+
         } catch (err: any) {
              let message = 'Failed to sign up. Please try again.';
             switch (err.code) {

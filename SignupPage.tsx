@@ -1,10 +1,10 @@
-import React, { useState, FormEvent } from 'react';
+import React, { useState, FormEvent, ChangeEvent } from 'react';
 import { useAuth } from './src/contexts/AuthContext.tsx';
 // Using named imports for Link and Navigate from react-router-dom to resolve module export errors.
 import { Link, Navigate } from 'react-router-dom';
 import Spinner from './components/Spinner.tsx';
 import { AuthLayout } from './LoginPage.tsx'; // Reusing the layout
-import { EyeIcon, EyeSlashIcon } from './components/IconComponents.tsx';
+import { EyeIcon, EyeSlashIcon, UserCircleIcon } from './components/IconComponents.tsx';
 
 const SignupPage: React.FC = () => {
     const { user, signup, loading, error } = useAuth();
@@ -13,15 +13,23 @@ const SignupPage: React.FC = () => {
     const [password, setPassword] = useState('');
     const [passwordVisible, setPasswordVisible] = useState(false);
     const [phoneNumber, setPhoneNumber] = useState('');
+    const [profilePic, setProfilePic] = useState<File | null>(null);
+    const [previewUrl, setPreviewUrl] = useState<string | null>(null);
     const [agreed, setAgreed] = useState(false); // New state for agreement
+
+    const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (file) {
+            setProfilePic(file);
+            if (previewUrl) URL.revokeObjectURL(previewUrl);
+            setPreviewUrl(URL.createObjectURL(file));
+        }
+    };
 
     const handleSubmit = (e: FormEvent) => {
         e.preventDefault();
-        if (!agreed) {
-            // This is a fallback, the button should be disabled anyway.
-            return;
-        }
-        signup(email, password, name, phoneNumber);
+        if (!agreed) return;
+        signup(email, password, name, phoneNumber, profilePic);
     };
 
     if (user) {
@@ -43,6 +51,19 @@ const SignupPage: React.FC = () => {
                 {error && <p className="text-center text-red-400 bg-red-900/30 p-3 rounded-lg border border-red-500/50">{error}</p>}
                 
                 <form onSubmit={handleSubmit} className="space-y-4 text-left">
+                     <div className="flex justify-center">
+                        <label htmlFor="profile-pic-upload" className="cursor-pointer">
+                            <div className="w-24 h-24 rounded-full bg-white/10 border-2 border-dashed border-white/30 flex items-center justify-center text-gray-400 hover:bg-white/20 hover:border-white/50 transition">
+                                {previewUrl ? (
+                                    <img src={previewUrl} alt="Profile preview" className="w-full h-full object-cover rounded-full" />
+                                ) : (
+                                    <UserCircleIcon className="w-16 h-16" />
+                                )}
+                            </div>
+                        </label>
+                        <input id="profile-pic-upload" type="file" accept="image/png, image/jpeg" className="hidden" onChange={handleFileChange} />
+                    </div>
+
                     <div>
                         <label htmlFor="name" className="block text-sm font-medium text-gray-300 mb-1">Full Name</label>
                         <input

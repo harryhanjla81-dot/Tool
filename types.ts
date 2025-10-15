@@ -131,6 +131,7 @@ export interface FeedPost {
     id: string; // The firebase key
     uid: string;
     authorName: string;
+    authorPhotoURL?: string;
     caption: string;
     mediaUrl?: string;
     mediaType?: 'image' | 'video' | 'audio';
@@ -139,6 +140,7 @@ export interface FeedPost {
     comments?: Record<string, {
         uid: string;
         authorName: string;
+        authorPhotoURL?: string;
         text: string;
         timestamp: number;
     }>;
