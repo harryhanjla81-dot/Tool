@@ -1,12 +1,12 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import Spinner from './components/Spinner.tsx';
 import { TrashIcon, ThumbsUpIcon, ChatBubbleIcon, EyeIcon, CloseIcon, GenerateIcon, ChevronDownIcon, DownloadIcon } from './components/IconComponents.tsx';
-import * as geminiService from './services/geminiService.ts';
-import { useNotification } from './src/contexts/NotificationContext.tsx';
-import { FBPage, ManagedPost } from './types.ts';
+import * as geminiService from '../services/geminiService.ts';
+import { useNotification } from '../src/contexts/NotificationContext.tsx';
+import { FBPage, ManagedPost } from '../types.ts';
 import html2canvas from 'html2canvas';
 import JSZip from 'jszip';
-import { useFacebookPage } from './src/contexts/FacebookPageContext.tsx';
+import { useFacebookPage } from '../src/contexts/FacebookPageContext.tsx';
 import FacebookLoginPrompt from './components/FacebookLoginPrompt.tsx';
 
 
@@ -162,32 +162,32 @@ const ManagePostsContent: React.FC<{ activePage: FBPage; onAuthError: () => void
             else setIsFetchingPosts(true);
         }
         setPostsError(null);
-        
+    
         try {
             if (type === 'published') {
                 const primaryFields = 'id,message,created_time,permalink_url';
                 const baseUrl = `https://graph.facebook.com/${API_VERSION}/${page.id}/posts?fields=${primaryFields}&limit=25&access_token=${page.access_token}`;
                 const url = urlOverride || baseUrl;
-        
+    
                 const response = await fetch(url);
                 const data = await response.json();
                 if (data.error) throw new Error(`Primary data fetch failed: ${data.error.message}`);
-        
+    
                 let primaryPosts: ManagedPost[] = data.data || [];
                 const nextUrl = data.paging?.next || null;
-        
+    
                 const newPostsWithFullData = primaryPosts.map(p => ({ ...p, full_picture: undefined, likes: undefined, comments: undefined, insights: undefined }));
 
                 if (isLoadMore) setPublishedPosts(prev => [...prev, ...newPostsWithFullData]);
                 else setPublishedPosts(newPostsWithFullData);
                 setNextPageUrl(nextUrl);
-        
+    
                 if (primaryPosts.length > 0) {
-                    const batch = primaryPosts.map(post => ({ method: 'GET', relative_url: `${API_VERSION}/${post.id}?fields=full_picture,likes.summary(true),comments.summary(true),insights.metri[...]        
+                    const batch = primaryPosts.map(post => ({ method: 'GET', relative_url: `${API_VERSION}/${post.id}?fields=full_picture,likes.summary(true),comments.summary(true),insights.metric(post_impressions_unique).period(lifetime)` }));
                     const formData = new FormData();
                     formData.append('access_token', page.access_token);
                     formData.append('batch', JSON.stringify(batch));
-        
+    
                     fetch(`https://graph.facebook.com`, { method: 'POST', body: formData })
                         .then(res => res.json())
                         .then(batchData => {
@@ -334,16 +334,16 @@ const ManagePostsContent: React.FC<{ activePage: FBPage; onAuthError: () => void
         } else {
             const type = postTypeToShow;
             const totalPosts = type === 'published' ? publishedPosts.length : scheduledPosts.length;
-            if (window.confirm(`Are you sure you want to delete ALL ${type} posts? This will delete the ${totalPosts} currently loaded posts and then continue fetching and deleting until none are[...]`)) {
+            if (window.confirm(`Are you sure you want to delete ALL ${type} posts? This will delete the ${totalPosts} currently loaded posts and then continue fetching and deleting until none are left. This action is irreversible.`)) {
                 setIsDeletingAll(true);
                 setDeletedPostsCount(0);
                 startTimer();
                 continuousDeleteCancelToken.current.cancelled = false;
-
+    
                 const currentPosts = type === 'published' ? publishedPosts : scheduledPosts;
                 const currentNextUrl = type === 'published' ? nextPageUrl : nextScheduledPageUrl;
                 deletionQueueRef.current = { posts: [...currentPosts], nextUrl: currentNextUrl };
-
+    
                 addNotification(`Starting continuous delete for all ${postTypeToShow} posts...`, 'info');
                 runContinuousDeleteCycle();
             }
@@ -381,7 +381,7 @@ const ManagePostsContent: React.FC<{ activePage: FBPage; onAuthError: () => void
         addNotification(`Starting AI replies for post: "${post.message?.substring(0, 30)}..."`, 'info');
         try {
             let allComments: any[] = [];
-            let commentsUrl: string | null = `https://graph.facebook.com/${API_VERSION}/${post.id}/comments?fields=id,message,from{name,id},can_comment,comment_count,comments.limit(50){id,message[...]`;
+            let commentsUrl: string | null = `https://graph.facebook.com/${API_VERSION}/${post.id}/comments?fields=id,message,from{name,id},can_comment,comment_count,comments.limit(50){id,message,from{name,id},can_comment,comment_count}&limit=100&filter=stream&access_token=${activePage.access_token}`;
     
             while (commentsUrl) {
                 const commentsResponse = await fetch(commentsUrl);
@@ -432,7 +432,7 @@ const ManagePostsContent: React.FC<{ activePage: FBPage; onAuthError: () => void
                     await fetch(`https://graph.facebook.com/${API_VERSION}/${comment.id}/likes`, { method: 'POST', body: likeFormData });
     
                     // Generate AI reply
-                    const bestReply = await geminiService.generateSingleBestReply(post.message || '', comment.message, comment.from, customCta, mentionCommenterName, useImageContextForReply, post[...] 
+                    const bestReply = await geminiService.generateSingleBestReply(post.message || '', comment.message, comment.from, customCta, mentionCommenterName, useImageContextForReply, post.full_picture || null);
                     
                     // Post the reply
                     const replyFormData = new FormData(); 
@@ -471,8 +471,8 @@ const ManagePostsContent: React.FC<{ activePage: FBPage; onAuthError: () => void
             switch (sortKey) {
                 case 'likes': return (b.likes?.summary?.total_count ?? 0) - (a.likes?.summary?.total_count ?? 0);
                 case 'comments': return (b.comments?.summary?.total_count ?? 0) - (a.comments?.summary?.total_count ?? 0);
-                case 'reach': { const valA = a.insights?.data?.[0]?.values?.[0]?.value; const valB = b.insights?.data?.[0]?.values?.[0]?.value; const reachA = typeof valA === 'number' ? valA : 0;[...] 
-                default: { const timeA = a.created_time ? new Date(a.created_time).getTime() : a.scheduled_publish_time ? a.scheduled_publish_time * 1000 : 0; const timeB = b.created_time ? new D[...] 
+                case 'reach': { const valA = a.insights?.data?.[0]?.values?.[0]?.value; const valB = b.insights?.data?.[0]?.values?.[0]?.value; const reachA = typeof valA === 'number' ? valA : 0; const reachB = typeof valB === 'number' ? valB : 0; return reachB - reachA; }
+                default: { const timeA = a.created_time ? new Date(a.created_time).getTime() : a.scheduled_publish_time ? a.scheduled_publish_time * 1000 : 0; const timeB = b.created_time ? new Date(b.created_time).getTime() : b.scheduled_publish_time ? b.scheduled_publish_time * 1000 : 0; return timeB - timeA; }
             }
         });
     }, [publishedPosts, scheduledPosts, postTypeToShow, sortKey]);
@@ -554,7 +554,7 @@ const ManagePostsContent: React.FC<{ activePage: FBPage; onAuthError: () => void
     const handleDownloadLoadedImages = async () => {
         const imagePosts = filteredPosts.filter(p => p.full_picture);
         if (imagePosts.length === 0) {
-            addNotification("No image posts found in the current view to download.", 'info');
+            addNotification("No image posts found in the current view to download.", "info");
             return;
         }
         setIsDownloadingImages(true);
@@ -600,19 +600,19 @@ const ManagePostsContent: React.FC<{ activePage: FBPage; onAuthError: () => void
     return (
         <div className="space-y-6">
             <div className="flex justify-between items-center flex-wrap gap-4">
-                <div className="flex rounded-lg shadow-sm"><button onClick={() => setPostTypeToShow('published')} className={`px-4 py-2 rounded-l-lg text-sm font-medium transition-colors ${postTy[...]  
+                <div className="flex rounded-lg shadow-sm"><button onClick={() => setPostTypeToShow('published')} className={`px-4 py-2 rounded-l-lg text-sm font-medium transition-colors ${postTypeToShow === 'published' ? 'bg-primary text-primary-text' : 'bg-gray-100 text-gray-800 dark:text-gray-200 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600'}`}>Published ({publishedPosts.length})</button><button onClick={() => setPostTypeToShow('scheduled')} className={`px-4 py-2 rounded-r-lg text-sm font-medium transition-colors ${postTypeToShow === 'scheduled' ? 'bg-primary text-primary-text' : 'bg-gray-100 text-gray-800 dark:text-gray-200 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600'}`}>Scheduled ({scheduledPosts.length})</button></div>
                 <div className="flex items-center gap-4 flex-wrap">
                     {(postTypeToShow === 'published' ? nextPageUrl : nextScheduledPageUrl) && !isFetchingPosts && (
                         <button 
                             onClick={() => handleFetchPosts(activePage, postTypeToShow, (postTypeToShow === 'published' ? nextPageUrl : nextScheduledPageUrl))} 
                             disabled={isFetchingMore} 
-                            className="px-4 py-2 text-sm font-medium bg-gray-100 text-gray-800 dark:text-gray-200 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg flex items-c[...] 
+                            className="px-4 py-2 text-sm font-medium bg-gray-100 text-gray-800 dark:text-gray-200 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg flex items-center gap-2 disabled:opacity-50"
                         >
                             {isFetchingMore ? <Spinner size="sm" /> : <ChevronDownIcon className="w-4 h-4" />}
                             {isFetchingMore ? 'Loading...' : 'Load More'}
                         </button>
                     )}
-                    {postTypeToShow === 'published' && ( <div className="flex items-center gap-2"><label htmlFor="sort-posts" className="text-sm font-medium text-gray-700 dark:text-gray-300">Sort[...] 
+                    {postTypeToShow === 'published' && ( <div className="flex items-center gap-2"><label htmlFor="sort-posts" className="text-sm font-medium text-gray-700 dark:text-gray-300">Sort by:</label><select id="sort-posts" value={sortKey} onChange={(e) => setSortKey(e.target.value as PostSortKey)} className="p-2 border rounded-lg bg-white dark:bg-gray-700 dark:border-gray-600 text-sm"><option value="default">Most Recent</option><option value="likes">Likes</option><option value="comments">Comments</option><option value="reach">Reach</option></select></div>)}
                     {isDeletingAll ? (
                         <div className="flex items-center gap-2 text-sm font-semibold p-2 bg-red-100 dark:bg-red-900/30 rounded-lg">
                             <Spinner size="sm" color="text-red-600" />
@@ -632,21 +632,21 @@ const ManagePostsContent: React.FC<{ activePage: FBPage; onAuthError: () => void
             </div>
 
             <div className="bg-gray-50 dark:bg-gray-800/50 rounded-xl border border-gray-200 dark:border-gray-700/50">
-                <button onClick={() => setIsFilterVisible(!isFilterVisible)} className="w-full flex justify-between items-center p-4 font-semibold text-lg"><span className="text-gray-800 dark:tex[...] 
+                <button onClick={() => setIsFilterVisible(!isFilterVisible)} className="w-full flex justify-between items-center p-4 font-semibold text-lg"><span className="text-gray-800 dark:text-gray-200">Filter & Select Options</span><ChevronDownIcon className={`w-6 h-6 transition-transform ${isFilterVisible ? 'rotate-180' : ''}`} /></button>
                 {isFilterVisible && <div className="p-4 border-t border-gray-200 dark:border-gray-700 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 items-end">
-                    <div className="lg:col-span-4"><label className="block text-sm font-medium mb-1 dark:text-gray-300">Keyword</label><input type="text" value={filterKeyword} onChange={e => setF[...] 
-                    <div><label className="block text-sm font-medium mb-1 dark:text-gray-300">Min Likes</label><input type="number" value={filterMinLikes} onChange={e => setFilterMinLikes(e.targe[...] 
-                    <div><label className="block text-sm font-medium mb-1 dark:text-gray-300">Max Likes</label><input type="number" value={filterMaxLikes} onChange={e => setFilterMaxLikes(e.targe[...] 
-                    <div><label className="block text-sm font-medium mb-1 dark:text-gray-300">Min Comments</label><input type="number" value={filterMinComments} onChange={e => setFilterMinComment[...] 
-                    <div><label className="block text-sm font-medium mb-1 dark:text-gray-300">Max Comments</label><input type="number" value={filterMaxComments} onChange={e => setFilterMaxComment[...] 
-                    <div className="lg:col-span-2"><label className="block text-sm font-medium mb-1 dark:text-gray-300">Start Date</label><input type="date" value={filterStartDate} onChange={e =>[...]
-                    <div className="lg:col-span-2"><label className="block text-sm font-medium mb-1 dark:text-gray-300">End Date</label><input type="date" value={filterEndDate} onChange={e => set[...] 
-                    <div className="lg:col-span-4"><button onClick={handleClearFilters} className="w-full px-4 py-2 text-sm font-medium rounded-md bg-gray-200 dark:bg-gray-600 hover:bg-gray-300 d[...] 
+                    <div className="lg:col-span-4"><label className="block text-sm font-medium mb-1 dark:text-gray-300">Keyword</label><input type="text" value={filterKeyword} onChange={e => setFilterKeyword(e.target.value)} placeholder="Search in message..." className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"/></div>
+                    <div><label className="block text-sm font-medium mb-1 dark:text-gray-300">Min Likes</label><input type="number" value={filterMinLikes} onChange={e => setFilterMinLikes(e.target.value)} className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"/></div>
+                    <div><label className="block text-sm font-medium mb-1 dark:text-gray-300">Max Likes</label><input type="number" value={filterMaxLikes} onChange={e => setFilterMaxLikes(e.target.value)} className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"/></div>
+                    <div><label className="block text-sm font-medium mb-1 dark:text-gray-300">Min Comments</label><input type="number" value={filterMinComments} onChange={e => setFilterMinComments(e.target.value)} className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"/></div>
+                    <div><label className="block text-sm font-medium mb-1 dark:text-gray-300">Max Comments</label><input type="number" value={filterMaxComments} onChange={e => setFilterMaxComments(e.target.value)} className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"/></div>
+                    <div className="lg:col-span-2"><label className="block text-sm font-medium mb-1 dark:text-gray-300">Start Date</label><input type="date" value={filterStartDate} onChange={e => setFilterStartDate(e.target.value)} className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"/></div>
+                    <div className="lg:col-span-2"><label className="block text-sm font-medium mb-1 dark:text-gray-300">End Date</label><input type="date" value={filterEndDate} onChange={e => setFilterEndDate(e.target.value)} className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"/></div>
+                    <div className="lg:col-span-4"><button onClick={handleClearFilters} className="w-full px-4 py-2 text-sm font-medium rounded-md bg-gray-200 dark:bg-gray-600 hover:bg-gray-300 dark:hover:bg-gray-500">Clear Filters</button></div>
                     <div className="lg:col-span-4 border-t border-gray-200 dark:border-gray-700 pt-4 mt-2 flex flex-wrap gap-4 items-center justify-between">
-                        <div className="flex items-center gap-2"><label className="font-medium dark:text-gray-300" htmlFor="select-mode-toggle">Select Mode</label><div className="relative"><input[...] 
+                        <div className="flex items-center gap-2"><label className="font-medium dark:text-gray-300" htmlFor="select-mode-toggle">Select Mode</label><div className="relative"><input type="checkbox" id="select-mode-toggle" checked={isSelectMode} onChange={e => setIsSelectMode(e.target.checked)} className="sr-only peer"/><label htmlFor="select-mode-toggle" className="block w-11 h-6 bg-gray-300 dark:bg-gray-600 rounded-full cursor-pointer peer-checked:bg-primary peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all"></label></div></div>
                         {isSelectMode && <>
-                            <button onClick={handleSelectAllFiltered} className="px-4 py-2 text-sm font-medium rounded-md bg-blue-500 text-white hover:bg-blue-600">Select All Filtered ({filteredP[...] 
-                            <button onClick={handleDeleteSelectedPosts} disabled={selectedPostIds.size === 0 || isDeletingSelected} className="px-4 py-2 text-sm font-medium rounded-md bg-red-600 [...] 
+                            <button onClick={handleSelectAllFiltered} className="px-4 py-2 text-sm font-medium rounded-md bg-blue-500 text-white hover:bg-blue-600">Select All Filtered ({filteredPosts.length})</button>
+                            <button onClick={handleDeleteSelectedPosts} disabled={selectedPostIds.size === 0 || isDeletingSelected} className="px-4 py-2 text-sm font-medium rounded-md bg-red-600 text-white hover:bg-red-700 disabled:opacity-50 flex items-center gap-2">{isDeletingSelected ? <Spinner size="sm"/> : <TrashIcon className="w-4 h-4" />} Delete Selected ({selectedPostIds.size})</button>
                         </>}
                     </div>
                 </div>}
@@ -654,33 +654,33 @@ const ManagePostsContent: React.FC<{ activePage: FBPage; onAuthError: () => void
 
             {postTypeToShow === 'published' && (<div className="bg-gray-50 dark:bg-gray-800/50 p-4 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm space-y-4">
                 <div className="flex flex-wrap gap-4 items-center justify-between">
-                    <button onClick={handleBulkAiReplyProcess} disabled={isBulkReplying || !!replyingPostId} className="px-4 py-2 text-sm font-medium rounded-md bg-purple-600 text-white hover:bg-[...]
-                    <button onClick={handleDownloadLoadedImages} disabled={isDownloadingImages} className="px-4 py-2 text-sm font-medium rounded-md bg-green-600 text-white hover:bg-green-700 disa[...] 
+                    <button onClick={handleBulkAiReplyProcess} disabled={isBulkReplying || !!replyingPostId} className="px-4 py-2 text-sm font-medium rounded-md bg-purple-600 text-white hover:bg-purple-700 disabled:opacity-50 flex items-center gap-2">{isBulkReplying ? <Spinner size="sm" /> : <GenerateIcon />} AI Reply to All Loaded</button>
+                    <button onClick={handleDownloadLoadedImages} disabled={isDownloadingImages} className="px-4 py-2 text-sm font-medium rounded-md bg-green-600 text-white hover:bg-green-700 disabled:opacity-50 flex items-center gap-2">{isDownloadingImages ? <Spinner size="sm" /> : <DownloadIcon />} Download Loaded Images</button>
                 </div>
-                <div><label htmlFor="custom-cta" className="block text-sm font-medium text-gray-700 dark:text-gray-300">AI Reply Call-to-Action</label><input id="custom-cta" type="text" value={cu[...] 
-                <div className="flex items-center justify-between pt-4 border-t border-gray-200 dark:border-gray-700"><label htmlFor="image-context-toggle" className="flex flex-col cursor-pointer[...] 
-                <div className="flex items-center justify-between pt-4 border-t border-gray-200 dark:border-gray-700"><label htmlFor="mention-name-toggle" className="font-medium text-gray-700 dar[...] 
+                <div><label htmlFor="custom-cta" className="block text-sm font-medium text-gray-700 dark:text-gray-300">AI Reply Call-to-Action</label><input id="custom-cta" type="text" value={customCta} onChange={(e) => setCustomCta(e.target.value)} className="w-full mt-2 p-2 border rounded-lg bg-white dark:bg-gray-700 dark:border-gray-600 text-sm"/></div>
+                <div className="flex items-center justify-between pt-4 border-t border-gray-200 dark:border-gray-700"><label htmlFor="image-context-toggle" className="flex flex-col cursor-pointer"><span className="font-medium text-gray-700 dark:text-gray-300">Analyze Image for Replies</span><span className="text-xs text-gray-500 dark:text-gray-400">Slower, but more context-aware.</span></label><div className="relative"><input type="checkbox" id="image-context-toggle" checked={useImageContextForReply} onChange={e => setUseImageContextForReply(e.target.checked)} className="sr-only peer"/><div className="w-11 h-6 bg-gray-300 dark:bg-gray-600 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div></div></div>
+                <div className="flex items-center justify-between pt-4 border-t border-gray-200 dark:border-gray-700"><label htmlFor="mention-name-toggle" className="font-medium text-gray-700 dark:text-gray-300">Mention Commenter in Reply</label><div className="relative"><input type="checkbox" id="mention-name-toggle" checked={mentionCommenterName} onChange={e => setMentionCommenterName(e.target.checked)} className="sr-only peer"/><div className="w-11 h-6 bg-gray-300 dark:bg-gray-600 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div></div></div>
                 <div className="flex justify-end pt-2">
                     <button onClick={handleClearReplyHistory} className="text-xs text-red-500 dark:text-red-400 hover:underline">
                         Clear Reply History ({Object.values(repliedCommentHistory).reduce((acc: number, val: string[]) => acc + val.length, 0)} records)
                     </button>
                 </div>
-            </div>)}}
+            </div>)}
 
             {isFetchingPosts && <div className="flex justify-center py-20"><Spinner size="lg" /></div>}
             {postsError && <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 rounded-lg shadow"><p>{postsError}</p></div>}
             
-            {!isFetchingPosts && filteredPosts.length === 0 && (<div className="text-center py-20 bg-white dark:bg-gray-800/50 rounded-2xl shadow-md"><h2 className="text-xl font-semibold">No {pos[...] 
+            {!isFetchingPosts && filteredPosts.length === 0 && (<div className="text-center py-20 bg-white dark:bg-gray-800/50 rounded-2xl shadow-md"><h2 className="text-xl font-semibold">No {postTypeToShow} posts found.</h2><p className="mt-1 text-sm text-gray-500">Try adjusting your filters or loading more posts.</p></div>)}
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-6">
                 {filteredPosts.map(post => {
                     const isSelected = isSelectMode && selectedPostIds.has(post.id);
                     return (
-                        <div data-post-id={post.id} key={post.id} onClick={(e) => handleCardClick(e, post)} className={`relative bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray[...] 
-                             <div className="relative w-full aspect-square bg-gray-200 dark:bg-gray-700"><img src={post.full_picture} alt="" className="w-full h-full object-cover" loading="lazy" [...] 
+                        <div data-post-id={post.id} key={post.id} onClick={(e) => handleCardClick(e, post)} className={`relative bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-200 dark:border-gray-700 overflow-hidden flex flex-col transition-all duration-200 ease-in-out ${isSelectMode ? 'cursor-pointer' : 'hover:shadow-2xl hover:-translate-y-1'} ${isSelected ? 'ring-4 ring-offset-2 ring-blue-500 dark:ring-offset-gray-900' : ''}`}>
+                             <div className="relative w-full aspect-square bg-gray-200 dark:bg-gray-700"><img src={post.full_picture} alt="" className="w-full h-full object-cover" loading="lazy" /><button onClick={(e) => { e.stopPropagation(); handleDeletePost(post.id); }} className="absolute top-2 right-2 p-2 bg-black/50 text-white rounded-full hover:bg-red-600 transition-colors z-10"><TrashIcon className="w-4 h-4"/></button></div>
                             <div className="p-4 flex-grow flex flex-col justify-between">
-                                <div><p className="text-sm text-gray-600 dark:text-gray-300 mb-3 break-words">{post.message ? post.message.substring(0, 150) + (post.message.length > 150 ? '...' :[...]
-                                {postTypeToShow === 'published' && (<div className="mt-4"><div className="flex justify-around items-center text-xs text-gray-600 dark:text-gray-400 border-t border[...] 
+                                <div><p className="text-sm text-gray-600 dark:text-gray-300 mb-3 break-words">{post.message ? post.message.substring(0, 150) + (post.message.length > 150 ? '...' : '') : 'No caption.'}</p><p className="text-xs text-gray-400 dark:text-gray-500">{post.created_time ? new Date(post.created_time).toLocaleString() : post.scheduled_publish_time ? `Scheduled: ${new Date(post.scheduled_publish_time * 1000).toLocaleString()}`: ''}</p></div>
+                                {postTypeToShow === 'published' && (<div className="mt-4"><div className="flex justify-around items-center text-xs text-gray-600 dark:text-gray-400 border-t border-gray-200 dark:border-gray-700 pt-3"><span className="flex items-center gap-1"><ThumbsUpIcon className="w-4 h-4"/>{post.likes?.summary?.total_count ?? 0}</span><span className="flex items-center gap-1"><ChatBubbleIcon className="w-4 h-4"/>{post.comments?.summary?.total_count ?? 0}</span><span className="flex items-center gap-1"><EyeIcon className="w-4 h-4"/>{getPostReach(post).toLocaleString()}</span></div>{(post.comments?.summary?.total_count ?? 0) > 0 && (<button onClick={(e) => {e.stopPropagation(); handleAiReplyToAll(post);}} disabled={!!replyingPostId} className="w-full mt-3 py-1.5 px-2 text-xs font-semibold text-white bg-purple-500 rounded-lg hover:bg-purple-600 disabled:opacity-50 flex items-center justify-center gap-1.5 transition-all">{replyingPostId === post.id ? <Spinner size="sm"/> : <GenerateIcon className="w-3 h-3"/>}{replyingPostId === post.id ? "Replying..." : "AI Reply"}</button>)}</div>)}
                             </div>
                         </div>
                     );
