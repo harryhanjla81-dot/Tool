@@ -33,11 +33,11 @@ type ActiveSheet = 'language' | 'country' | 'contentType' | 'category' | 'emotio
 const SettingsBottomSheet: React.FC<{ title: string; onClose: () => void; children: React.ReactNode; }> = ({ title, onClose, children }) => {
     return (
         <>
-            <div className="fixed inset-0 bg-black/30 z-40 md:hidden" onClick={onClose} />
-            <div className="fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-800 border-t border-gray-200/8 rounded-t-lg shadow-sm z-50 md:hidden max-h-[80vh] flex flex-col transition-transform duration-150">
-                <div className="flex justify-between items-center p-4 border-b border-gray-200/8 flex-shrink-0">
-                    <h3 className="font-semibold text-lg text-gray-800 dark:text-gray-100">{title}</h3>
-                    <button onClick={onClose} className="p-1 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700/60 flex items-center"><CloseIcon /></button>
+            <div className="fixed inset-0 bg-black/60 z-40 md:hidden" onClick={onClose} style={{ animation: 'fade-in 0.3s ease-out' }}></div>
+            <div className="fixed bottom-0 left-0 right-0 bg-white/80 dark:bg-black/70 backdrop-blur-xl rounded-t-2xl shadow-2xl z-50 md:hidden max-h-[80vh] flex flex-col" style={{ transformOrigin: 'bottom center', animation: 'unfurl 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards' }}>
+                <div className="flex justify-between items-center p-4 border-b dark:border-gray-700 flex-shrink-0">
+                    <h3 className="font-bold text-lg">{title}</h3>
+                    <button onClick={onClose} className="p-1 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700"><CloseIcon /></button>
                 </div>
                 <div className="overflow-y-auto p-4 scrollbar-thin">
                     {children}
@@ -113,18 +113,18 @@ const MobileFooterToolbar: React.FC<{
     }, [checkScroll]);
 
     const FooterButton: React.FC<{ icon: React.ReactNode; label: string; value?: string; onClick: () => void }> = ({ icon, label, value, onClick }) => (
-        <button onClick={onClick} className="flex flex-col items-center justify-center gap-1 flex-shrink-0 w-20 text-center p-2 rounded-md bg-transparent border border-gray-200/6 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
-            <div className="text-gray-600 dark:text-gray-200">{icon}</div>
-            <span className="text-xs font-medium text-gray-700 dark:text-gray-100 truncate w-full">{label}</span>
-            {value && <span className="text-[10px] text-gray-500 truncate w-full">{value}</span>}
+        <button onClick={onClick} className="flex flex-col items-center justify-center gap-1 flex-shrink-0 w-20 text-center p-2 rounded-lg hover:bg-white/10 active:bg-white/20 transition-colors">
+            <div className="text-white">{icon}</div>
+            <span className="text-xs font-semibold text-white truncate w-full">{label}</span>
+            {value && <span className="text-[10px] text-gray-400 truncate w-full">{value}</span>}
         </button>
     );
 
     return (
-        <div className="fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-900 border-t border-gray-200/8 z-30 md:hidden rounded-t-lg shadow-sm">
+        <div className="fixed bottom-0 left-0 right-0 bg-black/70 backdrop-blur-lg border-t border-white/10 z-30 md:hidden rounded-t-2xl">
             <div className="flex items-center gap-1 p-1">
                 <div className="relative flex-grow flex items-center overflow-hidden">
-                    {showScrollArrows.left && <div className="absolute left-0 top-0 bottom-0 z-10 w-8 bg-black/10 flex items-center justify-start pointer-events-none"><ChevronLeftIcon className="w-5 h-5 text-gray-400/80" /></div>}
+                    {showScrollArrows.left && <div className="absolute left-0 top-0 bottom-0 z-10 w-8 bg-gradient-to-r from-black/80 to-transparent flex items-center justify-start pointer-events-none"><ChevronLeftIcon className="w-5 h-5 text-white/70" /></div>}
                     <div ref={footerScrollRef} onScroll={checkScroll} className="overflow-x-auto whitespace-nowrap scrollbar-thin scrollbar-thumb-transparent scrollbar-track-transparent">
                         <div className="flex items-center gap-1 px-2">
                              <FooterButton icon={<GenerateIcon className="w-5 h-5"/>} label="Generate" value={`${settings.postCount} Posts`} onClick={() => onSheetToggle('postCount')} />
@@ -133,7 +133,7 @@ const MobileFooterToolbar: React.FC<{
                              <FooterButton icon={<SparklesIcon className="w-5 h-5"/>} label="Emotion" value={Emotions[settings.selectedEmotion].split(' ')[1]} onClick={() => onSheetToggle('emotion')} />
                              <FooterButton icon={<LanguageIcon className="w-5 h-5"/>} label="Language" value={LanguageOptions[settings.selectedLanguage]} onClick={() => onSheetToggle('language')} />
                              <FooterButton icon={<MapPinIcon className="w-5 h-5"/>} label="Country" value={CountryOptions[settings.selectedCountryCode]} onClick={() => onSheetToggle('country')} />
-                             <div className="w-px h-10 bg-gray-200/10 mx-2"></div>
+                             <div className="w-px h-10 bg-white/20 mx-2"></div>
                              <FooterButton icon={<DocumentTextIcon className="w-5 h-5"/>} label="Header" onClick={() => onSheetToggle('headerAndHeadline')} />
                              <FooterButton icon={<SparklesIcon className="w-5 h-5"/>} label="Highlight" onClick={() => onSheetToggle('highlight')} />
                              <FooterButton icon={<ClipboardListIcon className="w-5 h-5"/>} label="Summary" onClick={() => onSheetToggle('summary')} />
@@ -141,10 +141,10 @@ const MobileFooterToolbar: React.FC<{
                              <FooterButton icon={<CollageIcon className="w-5 h-5"/>} label="Overlay" onClick={() => onSheetToggle('overlay')} />
                         </div>
                     </div>
-                    {showScrollArrows.right && <div className="absolute right-0 top-0 bottom-0 z-10 w-8 bg-black/10 flex items-center justify-end pointer-events-none"><ChevronRightIcon className="w-5 h-5 text-gray-400/80" /></div>}
+                    {showScrollArrows.right && <div className="absolute right-0 top-0 bottom-0 z-10 w-8 bg-gradient-to-l from-black/80 to-transparent flex items-center justify-end pointer-events-none"><ChevronRightIcon className="w-5 h-5 text-white/70" /></div>}
                 </div>
                 <div className="pl-1 pr-2 flex-shrink-0">
-                    <button onClick={onGenerate} disabled={isLoading} className="w-20 h-20 bg-primary text-primary-text font-semibold rounded-xl disabled:opacity-60 flex flex-col items-center justify-center gap-1 shadow-sm hover:shadow-md transform transition-all text-sm">
+                    <button onClick={onGenerate} disabled={isLoading} className="w-20 h-20 bg-primary text-primary-text font-bold rounded-2xl disabled:opacity-50 flex flex-col items-center justify-center gap-1 shadow-lg hover:shadow-xl hover:-translate-y-0.5 transform transition-all text-sm">
                         {isLoading ? <Spinner size="sm" /> : <GenerateIcon />}
                         <span>{isLoading ? '...' : 'Generate'}</span>
                     </button>
@@ -177,12 +177,12 @@ const MainAppPage: React.FC = () => {
         setHeaderActions(
             <button
                 onClick={() => setIsToolbarVisible(prev => !prev)}
-                className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-100 bg-transparent border border-gray-200/6 rounded-md transition-colors duration-150 hover:bg-gray-50 dark:hover:bg-gray-800/50 focus:outline-none focus:ring-2 focus:ring-primary/20"
+                className="flex items-center gap-2 px-4 py-2 text-sm font-semibold text-gray-700 dark:text-gray-200 bg-gray-100 dark:bg-gray-700/50 rounded-full hover:bg-gray-200 dark:hover:bg-gray-600/50 transition-all duration-300 ease-in-out shadow-sm hover:shadow-md focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 dark:focus:ring-offset-gray-900"
                 title={isToolbarVisible ? "Hide Controls" : "Show Controls"}
                 aria-expanded={isToolbarVisible}
             >
                 <span>Controls</span>
-                <ChevronDownIcon className={`w-5 h-5 transition-transform duration-200 ${isToolbarVisible ? 'rotate-180' : 'rotate-0'}`} />
+                <ChevronDownIcon className={`w-5 h-5 transition-transform duration-300 ${isToolbarVisible ? 'rotate-180' : 'rotate-0'}`} />
             </button>
         );
         return () => setHeaderActions(null);

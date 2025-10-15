@@ -1,13 +1,13 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import Spinner from './components/Spinner';
-import { TrashIcon, ThumbsUpIcon, ChatBubbleIcon, EyeIcon, CloseIcon, GenerateIcon, ChevronDownIcon, DownloadIcon } from './components/IconComponents';
-import * as geminiService from './services/geminiService';
-import JSZip from 'jszip';
+import Spinner from './components/Spinner.tsx';
+import { TrashIcon, ThumbsUpIcon, ChatBubbleIcon, EyeIcon, CloseIcon, GenerateIcon, ChevronDownIcon, DownloadIcon } from './components/IconComponents.tsx';
+import * as geminiService from '../services/geminiService.ts';
+import { useNotification } from '../src/contexts/NotificationContext.tsx';
+import { FBPage, ManagedPost } from '../types.ts';
 import html2canvas from 'html2canvas';
-import { useNotification } from './src/contexts/NotificationContext';
-import { FBPage, ManagedPost } from './types';
-import { useFacebookPage } from './src/contexts/FacebookPageContext';
-import FacebookLoginPrompt from './components/FacebookLoginPrompt';
+import JSZip from 'jszip';
+import { useFacebookPage } from '../src/contexts/FacebookPageContext.tsx';
+import FacebookLoginPrompt from './components/FacebookLoginPrompt.tsx';
 
 
 // --- CONSTANTS ---

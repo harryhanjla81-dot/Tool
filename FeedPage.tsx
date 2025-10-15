@@ -1,12 +1,57 @@
-import React, { useState, useEffect, useCallback, useRef, ChangeEvent } from 'react';
+import React, { useState, useEffect, useCallback, useRef, ChangeEvent, FormEvent } from 'react';
 import { useAuth } from './src/contexts/AuthContext.tsx';
 import { useNotification } from './src/contexts/NotificationContext.tsx';
 import { FeedPost } from './types.ts';
 import Spinner from './components/Spinner.tsx';
-import { ThumbsUpIcon, ChatBubbleIcon } from './components/IconComponents.tsx';
+import { ThumbsUpIcon, ChatBubbleIcon, TrashIcon } from './components/IconComponents.tsx';
 
+// FIX: Replaced `declare var firebase: any` with a more specific declaration to resolve namespace errors.
 // Declare firebase global to avoid TypeScript errors, as it's loaded via script tag
-declare var firebase: any;
+declare namespace firebase {
+    // Basic user properties used in the app
+    interface User {
+        uid: string;
+        displayName: string | null;
+    }
+
+    interface DatabaseReference {
+        remove(): Promise<void>;
+        set(value: any): Promise<void>;
+        push(value: any): Promise<DatabaseReference>;
+        on(eventType: 'value', callback: (snapshot: any) => any, cancelCallbackOrContext?: object | null, context?: object | null): (a: any | null, b?: string) => any;
+        off(eventType: 'value', callback?: (snapshot: any) => any): void;
+        orderByChild(path: string): DatabaseReference;
+        limitToLast(limit: number): DatabaseReference;
+    }
+
+    interface Database {
+        ref(path: string): DatabaseReference;
+    }
+    
+    interface UploadTaskSnapshot {
+        ref: StorageReference;
+    }
+
+    interface StorageReference {
+        child(path: string): StorageReference;
+        put(data: Blob | Uint8Array | ArrayBuffer | File, metadata?: object): Promise<UploadTaskSnapshot>;
+        getDownloadURL(): Promise<string>;
+    }
+    
+    interface Storage {
+        ref(path?: string): StorageReference;
+    }
+
+    function database(): Database;
+    function storage(): Storage;
+
+    namespace database {
+        const ServerValue: {
+            TIMESTAMP: object;
+        };
+    }
+}
+
 
 // --- HELPER & UTILITY COMPONENTS ---
 
@@ -39,6 +84,7 @@ const UserAvatar: React.FC<{ name: string | null }> = ({ name }) => {
 };
 
 const formatTimeAgo = (timestamp: number): string => {
+    if (!timestamp) return '...';
     const now = Date.now();
     const seconds = Math.floor((now - timestamp) / 1000);
     if (seconds < 60) return "just now";
@@ -134,7 +180,8 @@ const CreatePost: React.FC<{ onPostCreated: () => void }> = ({ onPostCreated }) 
                 uid: user!.uid,
                 authorName: user!.displayName || 'Anonymous',
                 caption: caption.trim(),
-                timestamp: firebase.database.ServerValue.TIMESTAMP,
+                // FIX: Cast ServerValue.TIMESTAMP to 'any' to satisfy the FeedPost['timestamp'] type of 'number'. Firebase correctly interprets this server-side placeholder.
+                timestamp: firebase.database.ServerValue.TIMESTAMP as any,
                 likes: {}
             };
 
@@ -202,8 +249,19 @@ const CreatePost: React.FC<{ onPostCreated: () => void }> = ({ onPostCreated }) 
 
 // --- POST CARD COMPONENT ---
 
-const PostCard: React.FC<{ post: FeedPost, currentUserId: string }> = ({ post, currentUserId }) => {
+interface PostCardProps {
+    post: FeedPost;
+    currentUserId: string;
+    currentUser: firebase.User | null;
+    onDeletePost: (postId: string) => void;
+}
+
+const PostCard: React.FC<PostCardProps> = ({ post, currentUserId, currentUser, onDeletePost }) => {
+    const { addNotification } = useNotification();
     const hasLiked = post.likes && post.likes[currentUserId];
+    const [commentsVisible, setCommentsVisible] = useState(false);
+    const [newComment, setNewComment] = useState('');
+    const [isSubmittingComment, setIsSubmittingComment] = useState(false);
 
     const handleLike = () => {
         const postLikesRef = firebase.database().ref(`feed_posts/${post.id}/likes/${currentUserId}`);
@@ -214,20 +272,55 @@ const PostCard: React.FC<{ post: FeedPost, currentUserId: string }> = ({ post, c
         }
     };
     
+    const handlePostComment = async (e: FormEvent) => {
+        e.preventDefault();
+        if (!newComment.trim() || !currentUser) return;
+
+        setIsSubmittingComment(true);
+        const commentData = {
+            uid: currentUser.uid,
+            authorName: currentUser.displayName || 'Anonymous',
+            text: newComment.trim(),
+            timestamp: firebase.database.ServerValue.TIMESTAMP
+        };
+
+        try {
+            await firebase.database().ref(`feed_posts/${post.id}/comments`).push(commentData);
+            setNewComment('');
+        } catch (err: any) {
+            addNotification(`Failed to post comment: ${err.message}`, 'error');
+        } finally {
+            setIsSubmittingComment(false);
+        }
+    };
+    
+    const handleDeleteComment = (commentId: string) => {
+        if (window.confirm('Are you sure you want to delete this comment?')) {
+            firebase.database().ref(`feed_posts/${post.id}/comments/${commentId}`).remove();
+        }
+    };
+    
+    const commentsArray = Object.entries(post.comments || {}).map(([id, comment]) => ({ ...comment, id })).sort((a,b) => a.timestamp - b.timestamp);
+
     return (
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 border dark:border-gray-700">
             {/* Header */}
             <div className="flex items-center gap-3">
                 <UserAvatar name={post.authorName} />
-                <div>
+                <div className="flex-grow">
                     <p className="font-semibold text-gray-800 dark:text-gray-100">{post.authorName}</p>
                     <p className="text-xs text-gray-500 dark:text-gray-400">{formatTimeAgo(post.timestamp)}</p>
                 </div>
+                {post.uid === currentUserId && (
+                    <button onClick={() => onDeletePost(post.id)} className="p-2 rounded-full text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-red-500">
+                        <TrashIcon className="w-4 h-4" />
+                    </button>
+                )}
             </div>
             {/* Body */}
             <p className="my-4 text-gray-700 dark:text-gray-300 whitespace-pre-wrap">{post.caption}</p>
             {post.mediaUrl && (
-                <div className="rounded-lg overflow-hidden">
+                <div className="rounded-lg overflow-hidden bg-gray-100 dark:bg-gray-900 flex justify-center">
                     {post.mediaType === 'image' && <img src={post.mediaUrl} alt="Post content" className="w-full max-h-[60vh] object-contain"/>}
                     {post.mediaType === 'video' && <video src={post.mediaUrl} controls className="w-full" />}
                     {post.mediaType === 'audio' && <AudioPlayer src={post.mediaUrl} />}
@@ -238,10 +331,51 @@ const PostCard: React.FC<{ post: FeedPost, currentUserId: string }> = ({ post, c
                 <button onClick={handleLike} className={`flex items-center gap-2 text-sm font-semibold rounded-lg px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 w-full justify-center ${hasLiked ? 'text-primary' : 'text-gray-600 dark:text-gray-300'}`}>
                     <ThumbsUpIcon className="w-5 h-5" /> Like ({Object.keys(post.likes || {}).length})
                 </button>
-                <button className="flex items-center gap-2 text-sm font-semibold rounded-lg px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 w-full justify-center text-gray-600 dark:text-gray-300">
-                    <ChatBubbleIcon className="w-5 h-5" /> Comment
+                <button onClick={() => setCommentsVisible(prev => !prev)} className="flex items-center gap-2 text-sm font-semibold rounded-lg px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 w-full justify-center text-gray-600 dark:text-gray-300">
+                    <ChatBubbleIcon className="w-5 h-5" /> Comment ({commentsArray.length})
                 </button>
             </div>
+            {/* Comments Section */}
+            {commentsVisible && (
+                <div className="mt-4 pt-3 border-t dark:border-gray-700 space-y-4">
+                    {/* List existing comments */}
+                    <div className="space-y-3 max-h-60 overflow-y-auto scrollbar-thin pr-2">
+                        {commentsArray.length > 0 ? commentsArray.map(comment => (
+                            <div key={comment.id} className="flex items-start gap-2 group">
+                                <UserAvatar name={comment.authorName} />
+                                <div className="flex-grow bg-gray-100 dark:bg-gray-700 p-2 rounded-lg">
+                                    <div className="flex justify-between items-center">
+                                        <span className="font-semibold text-sm">{comment.authorName}</span>
+                                        <span className="text-xs text-gray-500">{formatTimeAgo(comment.timestamp)}</span>
+                                    </div>
+                                    <p className="text-sm mt-1">{comment.text}</p>
+                                </div>
+                                {comment.uid === currentUserId && (
+                                     <button onClick={() => handleDeleteComment(comment.id)} className="p-1 rounded-full text-gray-400 opacity-0 group-hover:opacity-100 hover:text-red-500">
+                                        <TrashIcon className="w-3 h-3" />
+                                    </button>
+                                )}
+                            </div>
+                        )) : <p className="text-sm text-center text-gray-500">No comments yet.</p>}
+                    </div>
+
+                    {/* New comment form */}
+                    <form onSubmit={handlePostComment} className="flex items-start gap-2 pt-3 border-t dark:border-gray-600">
+                         <UserAvatar name={currentUser?.displayName || null} />
+                         <div className="flex-grow">
+                             <input 
+                                value={newComment}
+                                onChange={e => setNewComment(e.target.value)}
+                                placeholder="Write a comment..."
+                                className="w-full bg-gray-100 dark:bg-gray-700 rounded-full py-2 px-4 border-transparent focus:ring-2 focus:ring-primary text-sm"
+                            />
+                         </div>
+                        <button type="submit" disabled={isSubmittingComment} className="px-4 py-2 bg-primary text-primary-text font-semibold rounded-full disabled:opacity-50 text-sm">
+                            {isSubmittingComment ? <Spinner size="sm" /> : 'Post'}
+                        </button>
+                    </form>
+                </div>
+            )}
         </div>
     );
 };
@@ -251,6 +385,7 @@ const PostCard: React.FC<{ post: FeedPost, currentUserId: string }> = ({ post, c
 
 const FeedPage: React.FC = () => {
     const { user } = useAuth();
+    const { addNotification } = useNotification();
     const [posts, setPosts] = useState<FeedPost[]>([]);
     const [isLoading, setIsLoading] = useState(true);
 
@@ -279,9 +414,20 @@ const FeedPage: React.FC = () => {
         return cleanup;
     }, [fetchPosts]);
 
+    const handleDeletePost = useCallback((postId: string) => {
+        if (window.confirm('Are you sure you want to delete this post?')) {
+            firebase.database().ref(`feed_posts/${postId}`).remove()
+                .then(() => {
+                    addNotification('Post deleted.', 'success');
+                    // The Firebase on('value') listener will automatically update the UI.
+                })
+                .catch((err: any) => addNotification(`Error deleting post: ${err.message}`, 'error'));
+        }
+    }, [addNotification]);
+
     return (
         <div className="max-w-2xl mx-auto space-y-6 pb-8">
-            <CreatePost onPostCreated={fetchPosts} />
+            <CreatePost onPostCreated={() => {}} />
             {isLoading && (
                 <div className="flex justify-center py-12"><Spinner size="lg"/></div>
             )}
@@ -292,7 +438,7 @@ const FeedPage: React.FC = () => {
                 </div>
             )}
             {!isLoading && posts.map(post => (
-                <PostCard key={post.id} post={post} currentUserId={user!.uid} />
+                <PostCard key={post.id} post={post} currentUserId={user!.uid} currentUser={user} onDeletePost={handleDeletePost} />
             ))}
         </div>
     );

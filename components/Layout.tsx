@@ -184,7 +184,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 
         <div className={`transition-all duration-300 ease-in-out ${isSidebarOpen ? 'lg:ml-72' : ''}`}>
             <div className="flex flex-col" style={{ height: '100vh' }}>
-                <header className="flex-shrink-0 z-30 flex items-center h-16 px-4 bg-white/80 dark:bg-black/70 backdrop-blur-sm shadow-lg border-b border-gray-200 dark:border-white/10 live-gradient-outline">
+                <header className="flex-shrink-0 z-30 flex items-center h-16 px-4 bg-white/80 dark:bg-black/70 backdrop-blur-sm shadow-lg border-b border-gray-200 dark:border-white/10">
                     <button onClick={toggleSidebar} className="p-2 rounded-full text-gray-500 hover:bg-gray-200 dark:text-gray-400 dark:hover:bg-white/10">
                         <MenuIcon className="w-6 h-6" />
                     </button>

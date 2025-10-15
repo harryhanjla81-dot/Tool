@@ -5,7 +5,7 @@ import * as geminiService from '../../../services/geminiService.ts';
 import { useNotification } from '../../contexts/NotificationContext.tsx';
 import { useSettings } from '../../contexts/SettingsContext.tsx';
 import {
-    GenerateIcon, DownloadAllIcon, TrashIcon, EditIcon, CollageIcon, FrameIcon
+    GenerateIcon, DownloadAllIcon, TrashIcon, EditIcon, CollageIcon, FrameIcon, SparklesIcon
 } from '../../../components/IconComponents.tsx';
 import Spinner from '../../../components/Spinner.tsx';
 
@@ -64,8 +64,8 @@ const ActionToolbar: React.FC<ActionToolbarProps> = ({
 
     return (
         <>
-            <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm shadow-lg rounded-2xl p-4 mb-6 sticky top-2 z-20 border dark:border-gray-700/50 live-gradient-outline">
-                <form onSubmit={handlePromptSubmit} className="flex flex-col sm:flex-row items-center gap-2 p-1 rounded-lg live-gradient-outline mb-4 bg-white/50 dark:bg-black/30">
+            <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm shadow-lg rounded-2xl p-4 mb-6 sticky top-2 z-20 border dark:border-gray-700/50">
+                <form onSubmit={handlePromptSubmit} className="prompt-bar-wrapper flex items-center gap-2 p-1.5 rounded-full mb-4 bg-white dark:bg-gray-900/50 border border-gray-300 dark:border-gray-700">
                      <input
                         type="text"
                         value={userPrompt}
@@ -74,11 +74,9 @@ const ActionToolbar: React.FC<ActionToolbarProps> = ({
                         className="w-full flex-grow p-2.5 bg-transparent border-none focus:ring-0 text-gray-900 dark:text-white placeholder:text-gray-500 dark:placeholder:text-gray-400"
                         disabled={isProcessingPrompt || isLoading}
                     />
-                    <div className="live-gradient-outline rounded-full w-full sm:w-auto">
-                        <button type="submit" disabled={isProcessingPrompt || isLoading || !userPrompt.trim()} className="px-6 py-2.5 bg-primary text-primary-text font-bold rounded-full disabled:opacity-50 flex items-center justify-center gap-2 shadow-lg hover:shadow-xl hover:-translate-y-0.5 transform transition-all w-full">
-                            {isProcessingPrompt ? <Spinner size="sm" /> : <GenerateIcon />} <span>{isProcessingPrompt ? 'Thinking...' : 'Submit'}</span>
-                        </button>
-                    </div>
+                    <button type="submit" disabled={isProcessingPrompt || isLoading || !userPrompt.trim()} className="toolbar-btn flex-shrink-0 w-10 h-10 bg-primary text-primary-text font-bold rounded-full disabled:opacity-50 flex items-center justify-center shadow-lg hover:scale-110 transition-transform">
+                        {isProcessingPrompt ? <Spinner size="sm" /> : <SparklesIcon className="w-5 h-5" />}
+                    </button>
                 </form>
                 <div className="mt-4 flex flex-col sm:flex-row items-center justify-between gap-4">
                     <p className="text-sm text-gray-600 dark:text-gray-300 flex-grow text-center sm:text-left">Use the prompt bar or buttons below for control.</p>
@@ -86,18 +84,18 @@ const ActionToolbar: React.FC<ActionToolbarProps> = ({
                         
                         {cardCount > 0 && (
                             <>
-                                <div className="live-gradient-outline rounded-lg"><button onClick={onToggleEditAll} className={`px-4 py-2 rounded-lg flex items-center gap-2 transition-colors font-semibold ${isEditingAll ? 'bg-primary text-primary-text' : 'bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600'}`}><EditIcon /><span>{isEditingAll ? 'Finish Editing' : 'Edit All'}</span></button></div>
-                                <div className="live-gradient-outline rounded-lg"><button onClick={handleDownloadAll} disabled={isDownloadingAll} className="px-4 py-2 rounded-lg flex items-center gap-2 font-semibold bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600 disabled:opacity-50">{isDownloadingAll ? <Spinner size="sm" /> : <DownloadAllIcon />}<span>{isDownloadingAll ? 'Zipping...' : 'Download All'}</span></button></div>
-                                <div className="live-gradient-outline rounded-lg"><button onClick={handleClearAllContent} className="px-4 py-2 rounded-lg flex items-center gap-2 font-semibold bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600"><TrashIcon /><span>Clear All</span></button></div>
+                                <button onClick={onToggleEditAll} className={`toolbar-btn px-4 py-2 rounded-lg flex items-center gap-2 transition-colors font-semibold ${isEditingAll ? 'bg-primary text-primary-text' : 'bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600'}`}><EditIcon /><span>{isEditingAll ? 'Finish Editing' : 'Edit All'}</span></button>
+                                <button onClick={handleDownloadAll} disabled={isDownloadingAll} className="toolbar-btn px-4 py-2 rounded-lg flex items-center gap-2 font-semibold bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600 disabled:opacity-50">{isDownloadingAll ? <Spinner size="sm" /> : <DownloadAllIcon />}<span>{isDownloadingAll ? 'Zipping...' : 'Download All'}</span></button>
+                                <button onClick={handleClearAllContent} className="toolbar-btn px-4 py-2 rounded-lg flex items-center gap-2 font-semibold bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600"><TrashIcon /><span>Clear All</span></button>
                             </>
                         )}
-                        <div className="live-gradient-outline rounded-full"><Link to="/collage-maker" className="px-4 py-2 bg-cyan-600 text-white font-semibold rounded-full flex items-center justify-center gap-2 shadow-lg hover:shadow-xl hover:bg-cyan-700 hover:-translate-y-0.5 transform transition-all"><CollageIcon /><span>Collage</span></Link></div>
-                        <div className="live-gradient-outline rounded-full"><Link to="/frame-maker" className="px-4 py-2 bg-teal-600 text-white font-semibold rounded-full flex items-center justify-center gap-2 shadow-lg hover:shadow-xl hover:bg-teal-700 hover:-translate-y-0.5 transform transition-all"><FrameIcon /><span>Frames</span></Link></div>
-                        <div className="live-gradient-outline rounded-full"><button onClick={onOpenRecreateModal} disabled={isLoading || isProcessingPrompt} className="px-4 py-2 bg-indigo-600 text-white font-semibold rounded-full disabled:opacity-50 flex items-center justify-center gap-2 shadow-lg hover:shadow-xl hover:bg-indigo-700 hover:-translate-y-0.5 transform transition-all"><GenerateIcon /><span>Recreate</span></button></div>
-                        <div className="live-gradient-outline rounded-full"><button onClick={onOpenViralPostModal} disabled={isLoading || isProcessingPrompt} className="px-4 py-2 bg-purple-600 text-white font-semibold rounded-full disabled:opacity-50 flex items-center justify-center gap-2 shadow-lg hover:shadow-xl hover:bg-purple-700 hover:-translate-y-0.5 transform transition-all"><GenerateIcon /><span>Viral Post</span></button></div>
+                        <Link to="/collage-maker" className="toolbar-btn px-4 py-2 bg-cyan-600 text-white font-semibold rounded-full flex items-center justify-center gap-2 shadow-lg hover:bg-cyan-700"><CollageIcon /><span>Collage</span></Link>
+                        <Link to="/frame-maker" className="toolbar-btn px-4 py-2 bg-teal-600 text-white font-semibold rounded-full flex items-center justify-center gap-2 shadow-lg hover:bg-teal-700"><FrameIcon /><span>Frames</span></Link>
+                        <button onClick={onOpenRecreateModal} disabled={isLoading || isProcessingPrompt} className="toolbar-btn px-4 py-2 bg-indigo-600 text-white font-semibold rounded-full disabled:opacity-50 flex items-center justify-center gap-2 shadow-lg hover:bg-indigo-700"><GenerateIcon /><span>Recreate</span></button>
+                        <button onClick={onOpenViralPostModal} disabled={isLoading || isProcessingPrompt} className="toolbar-btn px-4 py-2 bg-purple-600 text-white font-semibold rounded-full disabled:opacity-50 flex items-center justify-center gap-2 shadow-lg hover:bg-purple-700"><GenerateIcon /><span>Viral Post</span></button>
                         
-                        <div className="live-gradient-outline rounded-full hidden md:flex">
-                            <button onClick={() => handleGenerateContent()} disabled={isLoading || isProcessingPrompt} className="px-6 py-2.5 bg-primary text-primary-text font-bold rounded-full disabled:opacity-50 items-center justify-center gap-2 shadow-lg hover:shadow-xl hover:-translate-y-0.5 transform transition-all flex">
+                        <div className="hidden md:flex">
+                            <button onClick={() => handleGenerateContent()} disabled={isLoading || isProcessingPrompt} className="toolbar-btn px-6 py-2.5 bg-primary text-primary-text font-bold rounded-full disabled:opacity-50 items-center justify-center gap-2 shadow-lg flex">
                                 {isLoading ? <Spinner size="sm" /> : <GenerateIcon />}<span>{isLoading ? 'Generating...' : (cardCount > 0 ? 'Generate More' : 'Generate')}</span>
                             </button>
                         </div>

@@ -43,10 +43,6 @@ declare namespace firebase {
     const apps: App[];
     function initializeApp(config: object): App;
     function auth(): Auth;
-    // FIX: Correctly type firebase.auth.GoogleAuthProvider as a static property on the auth namespace.
-    namespace auth {
-        const GoogleAuthProvider: { new (): any; };
-    }
     function database(): Database;
     // FIX: Correctly type firebase.database.ServerValue. It is a property on the `database` namespace.
     namespace database {
@@ -63,7 +59,6 @@ interface AuthContextType {
     login: (email: string, password: string) => Promise<void>;
     signup: (email: string, password: string, name: string, phoneNumber: string) => Promise<void>;
     logout: () => void;
-    signInWithGoogle: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -207,67 +202,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         }
     };
 
-    const signInWithGoogle = async () => {
-        setLoading(true);
-        setError(null);
-        try {
-            const provider = new firebase.auth.GoogleAuthProvider();
-            const result = await firebase.auth().signInWithPopup(provider);
-            const user = result.user;
-
-            // Check if it's a new user to save their details
-            if (result.additionalUserInfo?.isNewUser && user) {
-                // Save to Firebase DB
-                await firebase.database().ref('users/' + user.uid).set({
-                    name: user.displayName,
-                    email: user.email,
-                    phoneNumber: user.phoneNumber || '',
-                    createdAt: firebase.database.ServerValue.TIMESTAMP
-                });
-
-                // Also send data to the external subscription endpoint
-                try {
-                    const formData = new FormData();
-                    formData.append('name', user.displayName || 'Unknown User');
-                    formData.append('number', user.phoneNumber || 'N/A');
-                    formData.append('mail', user.email || 'no-email@provided.com');
-                    // Don't send a password for Google sign-ups
-                    formData.append('password', 'google-auth');
-
-                    const response = await fetch('https://hanjlaafroj.pythonanywhere.com/subscribe', {
-                        method: 'POST',
-                        body: formData,
-                    });
-
-                    if (!response.ok) {
-                        const errorText = await response.text();
-                        console.error('Failed to subscribe Google user to external service:', response.status, errorText);
-                    } else {
-                        console.log('Google user successfully subscribed to external service.');
-                    }
-                } catch (externalServiceError) {
-                    console.error('Error while subscribing Google user to external service:', externalServiceError);
-                }
-            }
-            // setUser is handled by onAuthStateChanged listener
-        } catch (err: any) {
-            let message = 'Failed to sign in with Google. Please try again.';
-            switch (err.code) {
-                case 'auth/popup-closed-by-user':
-                    message = 'Sign-in window was closed. Please try again.';
-                    break;
-                case 'auth/account-exists-with-different-credential':
-                    message = 'An account already exists with this email. Please sign in with your original method.';
-                    break;
-                default:
-                    message = err.message || 'An unexpected error occurred.';
-            }
-            setError(message);
-        } finally {
-            setLoading(false);
-        }
-    };
-
     const logout = () => {
         firebase.auth().signOut();
     };
@@ -279,7 +213,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         login,
         signup,
         logout,
-        signInWithGoogle,
     };
 
     return <AuthContext.Provider value={value}>{!loading && children}</AuthContext.Provider>;

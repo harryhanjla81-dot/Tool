@@ -160,27 +160,23 @@
 
     .animation-delay-200 { animation-delay: 200ms; }
     .animation-delay-400 { animation-delay: 400ms; }
-
-    /* Live Gradient Outline */
-    @keyframes animated-gradient-border {
-      0% { background-position: 0% 50%; }
-      50% { background-position: 100% 50%; }
-      100% { background-position: 0% 50%; }
+    
+    /* New styles for prompt bar and toolbar buttons */
+    .prompt-bar-wrapper {
+        transition: border-color 0.3s ease-in-out;
+        border-radius: 9999px; /* pill shape */
+    }
+    .prompt-bar-wrapper:focus-within {
+        border-color: var(--app-primary-color);
     }
 
-    .live-gradient-outline {
-      position: relative;
+    .toolbar-btn {
+        transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+        will-change: transform, box-shadow;
     }
-
-    .live-gradient-outline::before {
-      content: '';
-      position: absolute;
-      inset: -2px; /* Border thickness */
-      z-index: -1;
-      border-radius: inherit; /* Inherit from parent */
-      background: linear-gradient(120deg, #84cc16, #06b6d4, #d946ef, #f43f5e, #84cc16);
-      background-size: 400% 400%;
-      animation: animated-gradient-border 10s ease infinite;
+    .toolbar-btn:hover:not(:disabled) {
+        transform: translateY(-2px);
+        box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2), 0 0 15px rgba(252, 0, 255, 0.3);
     }
 
   </style>

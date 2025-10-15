@@ -3,6 +3,7 @@ import { base32ToBytes, verifyTotpWindow } from './types.ts';
 import { AuthLayout } from './LoginPage.tsx'; // Re-use the nice layout
 import Spinner from './components/Spinner.tsx';
 import { useAuth } from './src/contexts/AuthContext.tsx';
+import { useNotification } from './src/contexts/NotificationContext.tsx';
 
 // You can replace these secrets with your own secure, randomly generated base32 strings.
 // These keys have been verified to contain only valid Base32 characters (A-Z, 2-7).
@@ -11,6 +12,7 @@ const SECRET_180_DAYS = 'RJCM3XBBMDLGHU6FWKH6DSEACKZMZKGI';
 
 const LicenseActivationPage: React.FC = () => {
     const { logout } = useAuth();
+    const { addNotification } = useNotification();
     const [licenseKey, setLicenseKey] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -53,8 +55,14 @@ const LicenseActivationPage: React.FC = () => {
 
         if (durationDays) {
             const expiry = Date.now() + durationDays * 24 * 60 * 60 * 1000;
-            localStorage.setItem('hanjlaHarryLicense_v1', JSON.stringify({ expiry }));
-            window.location.reload(); // Reload to re-check the license gate
+            localStorage.setItem('hanjlaHarryLicense_v1', JSON.stringify({ expiry, durationDays }));
+            
+            const durationText = durationDays === 30 ? "1 month" : "6 months";
+            addNotification(`License activated successfully for ${durationText}!`, 'success', 4000);
+
+            setTimeout(() => {
+                window.location.reload();
+            }, 1500);
         } else {
             setError('Invalid or expired license key. Please check the code and try again.');
             setIsLoading(false);

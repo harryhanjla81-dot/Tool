@@ -136,6 +136,12 @@ export interface FeedPost {
     mediaType?: 'image' | 'video' | 'audio';
     timestamp: number;
     likes: Record<string, boolean>; // a dictionary of user uids who liked it
+    comments?: Record<string, {
+        uid: string;
+        authorName: string;
+        text: string;
+        timestamp: number;
+    }>;
 }
 
 
