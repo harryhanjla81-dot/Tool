@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef, ChangeEvent, FormEvent } from 'react';
 import { useAuth } from './src/contexts/AuthContext.tsx';
 import { useNotification } from './src/contexts/NotificationContext.tsx';
+import { useConfirmation } from './src/contexts/ConfirmationContext.tsx';
 import { FeedPost } from './types.ts';
 import Spinner from './components/Spinner.tsx';
 import { ThumbsUpIcon, ChatBubbleIcon, TrashIcon } from './components/IconComponents.tsx';
@@ -248,6 +249,7 @@ interface PostCardProps {
 
 const PostCard: React.FC<PostCardProps> = ({ post, currentUserId, currentUser, onDeletePost }) => {
     const { addNotification } = useNotification();
+    const { confirmAction } = useConfirmation();
     const hasLiked = post.likes && post.likes[currentUserId];
     const [commentsVisible, setCommentsVisible] = useState(false);
     const [newComment, setNewComment] = useState('');
@@ -286,9 +288,14 @@ const PostCard: React.FC<PostCardProps> = ({ post, currentUserId, currentUser, o
     };
     
     const handleDeleteComment = (commentId: string) => {
-        if (window.confirm('Are you sure you want to delete this comment?')) {
-            firebase.database().ref(`feed_posts/${post.id}/comments/${commentId}`).remove();
-        }
+        confirmAction({
+            title: 'Delete Comment?',
+            message: 'Are you sure you want to permanently delete this comment?',
+            confirmText: 'Delete',
+            onConfirm: () => {
+                firebase.database().ref(`feed_posts/${post.id}/comments/${commentId}`).remove();
+            },
+        });
     };
     
     // FIX: Defensively handle potentially malformed comment data from Firebase.
@@ -381,6 +388,7 @@ const PostCard: React.FC<PostCardProps> = ({ post, currentUserId, currentUser, o
 const FeedPage: React.FC = () => {
     const { user } = useAuth();
     const { addNotification } = useNotification();
+    const { confirmAction } = useConfirmation();
     const [posts, setPosts] = useState<FeedPost[]>([]);
     const [isLoading, setIsLoading] = useState(true);
 
@@ -410,15 +418,20 @@ const FeedPage: React.FC = () => {
     }, [fetchPosts]);
 
     const handleDeletePost = useCallback((postId: string) => {
-        if (window.confirm('Are you sure you want to delete this post?')) {
-            firebase.database().ref(`feed_posts/${postId}`).remove()
-                .then(() => {
-                    addNotification('Post deleted.', 'success');
-                    // The Firebase on('value') listener will automatically update the UI.
-                })
-                .catch((err: any) => addNotification(`Error deleting post: ${err.message}`, 'error'));
-        }
-    }, [addNotification]);
+        confirmAction({
+            title: 'Delete Post?',
+            message: 'Are you sure you want to permanently delete this post and all its comments?',
+            confirmText: 'Delete Post',
+            icon: <TrashIcon className="w-6 h-6 text-red-500" />,
+            onConfirm: () => {
+                firebase.database().ref(`feed_posts/${postId}`).remove()
+                    .then(() => {
+                        addNotification('Post deleted.', 'success');
+                    })
+                    .catch((err: any) => addNotification(`Error deleting post: ${err.message}`, 'error'));
+            },
+        });
+    }, [addNotification, confirmAction]);
 
     return (
         <div className="max-w-2xl mx-auto space-y-6 pb-8">

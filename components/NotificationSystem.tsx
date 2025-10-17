@@ -135,7 +135,7 @@ const NotificationSystem: React.FC = () => {
   return (
     <>
       {/* Toast Container */}
-      <div className="fixed top-20 right-4 z-[100] w-full max-w-sm space-y-2">
+      <div className="fixed top-4 left-1/2 -translate-x-1/2 w-11/12 max-w-sm md:left-auto md:right-4 md:-translate-x-0 md:top-20 md:w-full z-[100] space-y-2">
         {activeToasts.map(toast => (
           <Toast key={toast.id} notification={toast} onDismiss={() => dismissToast(toast.id)} />
         ))}

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNotification } from './src/contexts/NotificationContext.tsx';
+import { useConfirmation } from './src/contexts/ConfirmationContext.tsx';
 import { TrashIcon, CloseIcon, ShieldCheckIcon, ClipboardIcon, DownloadIcon } from './components/IconComponents.tsx';
 import Spinner from './components/Spinner.tsx';
 import { base32ToBytes, totp } from './types.ts';
@@ -19,6 +20,7 @@ interface GeneratedCode {
 
 const TwoFactorAuthPage: React.FC = () => {
     const { addNotification } = useNotification();
+    const { confirmAction } = useConfirmation();
     const [accounts, setAccounts] = useState<TwoFactorAccount[]>([]);
     const [codes, setCodes] = useState<Record<string, GeneratedCode>>({});
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -134,11 +136,17 @@ const TwoFactorAuthPage: React.FC = () => {
     };
 
     const handleDeleteAccount = (id: string) => {
-        if (window.confirm('Are you sure you want to delete this account? This action cannot be undone.')) {
-            const updatedAccounts = accounts.filter(acc => acc.id !== id);
-            saveAccounts(updatedAccounts);
-            addNotification('Account deleted.', 'info');
-        }
+        confirmAction({
+            title: 'Delete 2FA Account?',
+            message: 'Are you sure you want to delete this account? This action cannot be undone.',
+            confirmText: 'Delete',
+            icon: <TrashIcon className="w-6 h-6 text-red-500" />,
+            onConfirm: () => {
+                const updatedAccounts = accounts.filter(acc => acc.id !== id);
+                saveAccounts(updatedAccounts);
+                addNotification('Account deleted.', 'info');
+            }
+        });
     };
 
     const handleCopyCode = (code: string) => {

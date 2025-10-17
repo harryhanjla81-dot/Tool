@@ -4,6 +4,7 @@ import { useTheme } from '../../contexts/ThemeContext.tsx';
 import * as geminiService from '../../../services/geminiService.ts';
 import { useNotification } from '../../contexts/NotificationContext.tsx';
 import { useSettings } from '../../contexts/SettingsContext.tsx';
+import { useConfirmation } from '../../contexts/ConfirmationContext.tsx';
 import {
     GenerateIcon, DownloadAllIcon, TrashIcon, EditIcon, CollageIcon, FrameIcon, SparklesIcon
 } from '../../../components/IconComponents.tsx';
@@ -29,6 +30,7 @@ const ActionToolbar: React.FC<ActionToolbarProps> = ({
 }) => {
     const { handleGenerateContent, handleDownloadAll, handleClearAllContent, isLoading, isDownloadingAll } = contentManager;
     const { addNotification } = useNotification();
+    const { confirmAction } = useConfirmation();
     const { settings, updateSetting } = useSettings();
 
     const [userPrompt, setUserPrompt] = useState<string>('');
@@ -62,6 +64,16 @@ const ActionToolbar: React.FC<ActionToolbarProps> = ({
         }
     }, [userPrompt, isProcessingPrompt, handleGenerateContent, updateSetting, addNotification]);
 
+    const confirmAndClearAll = () => {
+        confirmAction({
+            title: 'Clear All Cards?',
+            message: 'Are you sure you want to clear all generated cards from the screen? This action cannot be undone.',
+            confirmText: 'Clear All',
+            icon: <TrashIcon className="w-6 h-6 text-red-500" />,
+            onConfirm: handleClearAllContent,
+        });
+    };
+
     return (
         <>
             <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm shadow-lg rounded-2xl p-4 mb-6 sticky top-2 z-20 border dark:border-gray-700/50">
@@ -86,7 +98,7 @@ const ActionToolbar: React.FC<ActionToolbarProps> = ({
                             <>
                                 <button onClick={onToggleEditAll} className={`toolbar-btn px-4 py-2 rounded-lg flex items-center gap-2 transition-colors font-semibold ${isEditingAll ? 'bg-primary text-primary-text' : 'bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600'}`}><EditIcon /><span>{isEditingAll ? 'Finish Editing' : 'Edit All'}</span></button>
                                 <button onClick={handleDownloadAll} disabled={isDownloadingAll} className="toolbar-btn px-4 py-2 rounded-lg flex items-center gap-2 font-semibold bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600 disabled:opacity-50">{isDownloadingAll ? <Spinner size="sm" /> : <DownloadAllIcon />}<span>{isDownloadingAll ? 'Zipping...' : 'Download All'}</span></button>
-                                <button onClick={handleClearAllContent} className="toolbar-btn px-4 py-2 rounded-lg flex items-center gap-2 font-semibold bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600"><TrashIcon /><span>Clear All</span></button>
+                                <button onClick={confirmAndClearAll} className="toolbar-btn px-4 py-2 rounded-lg flex items-center gap-2 font-semibold bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600"><TrashIcon /><span>Clear All</span></button>
                             </>
                         )}
                         <Link to="/collage-maker" className="toolbar-btn px-4 py-2 bg-cyan-600 text-white font-semibold rounded-full flex items-center justify-center gap-2 shadow-lg hover:bg-cyan-700"><CollageIcon /><span>Collage</span></Link>

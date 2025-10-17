@@ -412,10 +412,8 @@ export const useContentManager = (
     };
 
     const handleClearAllContent = () => {
-        if (window.confirm('Are you sure you want to clear all generated cards?')) {
-            setCards([]);
-            addNotification('All cards cleared.', 'info');
-        }
+        setCards([]);
+        addNotification('All cards cleared.', 'info');
     };
 
     // FIX: Add return statement to export all necessary state and functions.

@@ -29,6 +29,7 @@ import { ThemeProvider } from './src/contexts/ThemeContext.tsx';
 import { ApiKeysProvider, useApiKeys } from './src/contexts/ApiKeysContext.tsx';
 import { setApiKey as setGeminiApiKey } from './services/geminiService.ts';
 import UserAvatar from './components/UserAvatar.tsx';
+import { ConfirmationProvider } from './src/contexts/ConfirmationContext.tsx';
 
 
 const ApiKeyInitializer: React.FC = () => {
@@ -84,23 +85,25 @@ const App: React.FC = () => {
               <ApiKeysProvider>
                 <SettingsProvider>
                   <FacebookPageProvider>
-                    <HashRouter>
-                      <Routes>
-                        <Route path="/login" element={<LoginPage />} />
-                        <Route path="/signup" element={<SignupPage />} />
-                        <Route path="/privacy-policy" element={<PrivacyPolicyPage />} />
-                        <Route
-                          path="/*"
-                          element={
-                            <ProtectedRoute>
-                              <LicenseGate>
-                                <AuthenticatedApp />
-                              </LicenseGate>
-                            </ProtectedRoute>
-                          }
-                        />
-                      </Routes>
-                    </HashRouter>
+                    <ConfirmationProvider>
+                      <HashRouter>
+                        <Routes>
+                          <Route path="/login" element={<LoginPage />} />
+                          <Route path="/signup" element={<SignupPage />} />
+                          <Route path="/privacy-policy" element={<PrivacyPolicyPage />} />
+                          <Route
+                            path="/*"
+                            element={
+                              <ProtectedRoute>
+                                <LicenseGate>
+                                  <AuthenticatedApp />
+                                </LicenseGate>
+                              </ProtectedRoute>
+                            }
+                          />
+                        </Routes>
+                      </HashRouter>
+                    </ConfirmationProvider>
                   </FacebookPageProvider>
                 </SettingsProvider>
               </ApiKeysProvider>
