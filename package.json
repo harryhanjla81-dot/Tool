@@ -21,7 +21,8 @@
     "face-api.js": "^0.22.2",
     "puppeteer-extra": "^3.3.6",
     "puppeteer-extra-plugin-stealth": "^2.11.2",
-    "services": "^0.0.3"
+    "services": "^0.0.3",
+    "@vercel/speed-insights": "^1.2.0"
   },
   "devDependencies": {
     "@types/node": "^22.14.0",

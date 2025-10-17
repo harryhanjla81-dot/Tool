@@ -276,7 +276,11 @@ const PostCard: React.FC<PostCardProps> = ({ post, currentUserId, currentUser, o
         }
     };
     
-    const commentsArray = Object.entries(post.comments || {}).map(([id, comment]) => ({ ...comment, id })).sort((a,b) => a.timestamp - b.timestamp);
+    // FIX: Defensively handle potentially malformed comment data from Firebase.
+    const commentsArray = Object.entries(post.comments || {})
+        .filter(([, comment]) => typeof comment === 'object' && comment !== null)
+        .map(([id, comment]) => ({ ...(comment as any), id }))
+        .sort((a,b) => (a.timestamp || 0) - (b.timestamp || 0));
 
     return (
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 border dark:border-gray-700">
