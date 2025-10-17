@@ -1,11 +1,69 @@
-
-
 import React, { useEffect, useRef, useState } from 'react';
 import { useAuth } from '../src/contexts/AuthContext.tsx';
 
-// Declare the 'firebase' global variable to resolve TypeScript errors.
-// This variable is loaded from external scripts and is not imported.
-declare var firebase: any;
+// Local, self-contained Firebase type declaration to ensure stability.
+declare namespace firebase {
+    // User & Auth
+    interface User {
+        uid: string;
+        displayName: string | null;
+        email: string | null;
+        phoneNumber: string | null;
+        photoURL: string | null;
+        updateProfile(profile: { displayName?: string | null; photoURL?: string | null; }): Promise<void>;
+    }
+    interface UserCredential {
+        user: User;
+        additionalUserInfo?: { isNewUser: boolean; };
+    }
+    interface Auth {
+        onAuthStateChanged(callback: (user: User | null) => void): () => void;
+        signInWithEmailAndPassword(email: string, password: string): Promise<UserCredential>;
+        createUserWithEmailAndPassword(email: string, password: string): Promise<UserCredential>;
+        signOut(): Promise<void>;
+        currentUser: User | null;
+        signInWithPopup(provider: any): Promise<UserCredential>;
+    }
+    
+    // Storage
+    interface UploadTaskSnapshot { ref: StorageReference; }
+    interface StorageReference {
+        child(path: string): StorageReference;
+        put(data: Blob | Uint8Array | ArrayBuffer | File, metadata?: object): Promise<UploadTaskSnapshot>;
+        getDownloadURL(): Promise<string>;
+    }
+    interface Storage { ref(path?: string): StorageReference; }
+
+    // Database
+    interface DatabaseReference {
+        remove(): Promise<void>;
+        set(value: any): Promise<void>;
+        push(value: any): Promise<DatabaseReference>;
+        on(eventType: string, callback: (snapshot: any) => any, cancelCallbackOrContext?: object | null, context?: object | null): (a: any | null, b?: string) => any;
+        off(eventType: string, callback?: (snapshot: any) => any): void;
+        once(eventType: string): Promise<any>;
+        orderByChild(path: string): DatabaseReference;
+        limitToLast(limit: number): DatabaseReference;
+        onDisconnect(): { 
+            remove(): Promise<void>; 
+            set(value: any): Promise<void>; 
+        };
+        numChildren(): number;
+    }
+    interface Database { ref(path: string): DatabaseReference; }
+    
+    // Top Level
+    interface App {}
+    const apps: App[];
+    function initializeApp(config: object): App;
+    function auth(): Auth;
+    function database(): Database;
+    function storage(): Storage;
+    namespace database {
+        const ServerValue: { TIMESTAMP: object; };
+    }
+}
+
 
 const CommunityChatPage: React.FC = () => {
     const { user } = useAuth();

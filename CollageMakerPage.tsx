@@ -4,7 +4,7 @@ import React, { useState, useEffect, useCallback, useMemo, ChangeEvent, useRef, 
 import { useSidebar } from './src/contexts/SidebarContext.tsx';
 import { useTheme } from './src/contexts/ThemeContext.tsx';
 import * as collageService from './src/components/main/collageService.ts';
-import { CollageLayout, GlobalCollageSettings } from './services/collageService.ts';
+import type { CollageLayout, GlobalCollageSettings } from './src/components/main/collageService.ts';
 import Spinner from './components/Spinner.tsx';
 import { DownloadIcon, ChevronUpIcon, ChevronDownIcon, CollageIcon, UploadIcon, RefreshIcon, ChevronLeftIcon, ChevronRightIcon } from './components/IconComponents.tsx';
 import { useNotification } from './src/contexts/NotificationContext.tsx';

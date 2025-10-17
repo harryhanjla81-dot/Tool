@@ -6,51 +6,66 @@ import Spinner from './components/Spinner.tsx';
 import { ThumbsUpIcon, ChatBubbleIcon, TrashIcon } from './components/IconComponents.tsx';
 import UserAvatar from './components/UserAvatar.tsx';
 
-// FIX: Replaced `declare var firebase: any` with a more specific declaration to resolve namespace errors.
-// Declare firebase global to avoid TypeScript errors, as it's loaded via script tag
+// Local, self-contained Firebase type declaration to ensure stability.
 declare namespace firebase {
-    // Basic user properties used in the app
+    // User & Auth
     interface User {
         uid: string;
         displayName: string | null;
+        email: string | null;
+        phoneNumber: string | null;
         photoURL: string | null;
+        updateProfile(profile: { displayName?: string | null; photoURL?: string | null; }): Promise<void>;
     }
-
-    interface DatabaseReference {
-        remove(): Promise<void>;
-        set(value: any): Promise<void>;
-        push(value: any): Promise<DatabaseReference>;
-        on(eventType: 'value', callback: (snapshot: any) => any, cancelCallbackOrContext?: object | null, context?: object | null): (a: any | null, b?: string) => any;
-        off(eventType: 'value', callback?: (snapshot: any) => any): void;
-        orderByChild(path: string): DatabaseReference;
-        limitToLast(limit: number): DatabaseReference;
+    interface UserCredential {
+        user: User;
+        additionalUserInfo?: { isNewUser: boolean; };
     }
-
-    interface Database {
-        ref(path: string): DatabaseReference;
+    interface Auth {
+        onAuthStateChanged(callback: (user: User | null) => void): () => void;
+        signInWithEmailAndPassword(email: string, password: string): Promise<UserCredential>;
+        createUserWithEmailAndPassword(email: string, password: string): Promise<UserCredential>;
+        signOut(): Promise<void>;
+        currentUser: User | null;
+        signInWithPopup(provider: any): Promise<UserCredential>;
     }
     
-    interface UploadTaskSnapshot {
-        ref: StorageReference;
-    }
-
+    // Storage
+    interface UploadTaskSnapshot { ref: StorageReference; }
     interface StorageReference {
         child(path: string): StorageReference;
         put(data: Blob | Uint8Array | ArrayBuffer | File, metadata?: object): Promise<UploadTaskSnapshot>;
         getDownloadURL(): Promise<string>;
     }
-    
-    interface Storage {
-        ref(path?: string): StorageReference;
-    }
+    interface Storage { ref(path?: string): StorageReference; }
 
+    // Database
+    interface DatabaseReference {
+        remove(): Promise<void>;
+        set(value: any): Promise<void>;
+        push(value: any): Promise<DatabaseReference>;
+        on(eventType: string, callback: (snapshot: any) => any, cancelCallbackOrContext?: object | null, context?: object | null): (a: any | null, b?: string) => any;
+        off(eventType: string, callback?: (snapshot: any) => any): void;
+        once(eventType: string): Promise<any>;
+        orderByChild(path: string): DatabaseReference;
+        limitToLast(limit: number): DatabaseReference;
+        onDisconnect(): { 
+            remove(): Promise<void>; 
+            set(value: any): Promise<void>; 
+        };
+        numChildren(): number;
+    }
+    interface Database { ref(path: string): DatabaseReference; }
+    
+    // Top Level
+    interface App {}
+    const apps: App[];
+    function initializeApp(config: object): App;
+    function auth(): Auth;
     function database(): Database;
     function storage(): Storage;
-
     namespace database {
-        const ServerValue: {
-            TIMESTAMP: object;
-        };
+        const ServerValue: { TIMESTAMP: object; };
     }
 }
 

@@ -1,3 +1,7 @@
+// This file now contains the global firebase namespace declaration.
+
+// FIX: Wrap 'firebase' namespace in 'declare global' to make it available in other modules.
+// REMOVED: The global declaration was causing issues. It will be moved to individual files.
 
 
 export interface FBPage {

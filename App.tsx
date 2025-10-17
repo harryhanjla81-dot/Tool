@@ -1,8 +1,6 @@
 import React, { useEffect } from 'react';
 // Using named imports for react-router-dom components to resolve module export errors.
 import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { SpeedInsights } from "@vercel/speed-insights/react";
-import { Analytics } from "@vercel/analytics/react";
 import Layout from './components/Layout.tsx';
 import ProtectedRoute from './components/ProtectedRoute.tsx';
 import MainAppPage from './MainAppPage.tsx';
@@ -110,8 +108,6 @@ const App: React.FC = () => {
           </ThemeProvider>
         </AuthProvider>
       </NotificationProvider>
-      <SpeedInsights />
-      <Analytics />
     </>
   );
 };
