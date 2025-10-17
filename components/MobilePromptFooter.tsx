@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, FormEvent, ChangeEvent, useRef } from 'react';
-import { AiBotIcon, EditDrawerIcon, UploadIcon, CloseIcon, SparklesIcon } from './IconComponents.tsx';
+import { TalkToAiIcon, EditDrawerIcon, UploadIcon, CloseIcon, SparklesIcon } from './IconComponents.tsx';
 import * as geminiService from '../services/geminiService.ts';
 import Spinner from './Spinner.tsx';
 import { useNotification } from '../src/contexts/NotificationContext.tsx';
@@ -109,7 +109,7 @@ const MobilePromptFooter: React.FC<MobilePromptFooterProps> = ({ onToggleControl
                     onClick={() => setIsAiPanelOpen(true)}
                     className="w-16 h-16 rounded-full bg-gradient-to-br from-purple-600 to-pink-500 text-white shadow-lg flex items-center justify-center transform transition-transform hover:scale-110"
                 >
-                    <AiBotIcon className="w-9 h-9" />
+                    <TalkToAiIcon className="w-9 h-9" />
                 </button>
                  <button 
                     onClick={onToggleControls}
