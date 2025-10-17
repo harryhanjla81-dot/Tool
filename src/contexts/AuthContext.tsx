@@ -123,17 +123,15 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             console.error("Login Error Raw:", err);
             let friendlyMessage = 'An unexpected error occurred. Please try again.';
             
-            // Handle modern Firebase Auth REST API errors (like INVALID_LOGIN_CREDENTIALS)
-            const restApiError = err.error;
-            if (restApiError && typeof restApiError.message === 'string') {
-                const message = restApiError.message;
-                 if (message.includes('INVALID_LOGIN_CREDENTIALS') || message.includes('INVALID_PASSWORD') || message.includes('EMAIL_NOT_FOUND')) {
-                    friendlyMessage = 'Incorrect email or password. Please check your credentials and try again.';
-                } else {
-                    let apiMessage = message.replace(/_/g, ' ').toLowerCase();
-                    friendlyMessage = apiMessage.charAt(0).toUpperCase() + apiMessage.slice(1);
-                }
-            } else if (err.code) { // Handle standard Firebase SDK errors
+            // Get the most likely source of the error message string
+            const errorMessageString = (typeof err.message === 'string' ? err.message : '') || (typeof err === 'string' ? err : '');
+
+            // Check for Firebase Auth REST API common error strings.
+            if (errorMessageString.includes('INVALID_LOGIN_CREDENTIALS') || errorMessageString.includes('INVALID_PASSWORD') || errorMessageString.includes('EMAIL_NOT_FOUND')) {
+                friendlyMessage = 'Incorrect email or password. Please check your credentials and try again.';
+            } 
+            // Check for standard Firebase SDK error codes
+            else if (err.code) {
                 switch (err.code) {
                     case 'auth/invalid-credential':
                     case 'auth/wrong-password':
@@ -144,10 +142,12 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                         friendlyMessage = 'Please enter a valid email address.';
                         break;
                     default:
+                        // If there's an SDK error with a message, use it, otherwise use a generic message.
                         friendlyMessage = err.message || 'An unexpected error occurred.';
                 }
-            } else if (err.message) { // Fallback for other error formats
-                friendlyMessage = err.message;
+            } else if (errorMessageString) {
+                // For other errors, provide a generic message to avoid displaying raw JSON or technical details.
+                friendlyMessage = 'An unknown error occurred during login.';
             }
             
             setError(friendlyMessage);

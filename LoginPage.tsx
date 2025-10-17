@@ -5,6 +5,24 @@ import { Link, Navigate } from 'react-router-dom';
 import Spinner from './components/Spinner.tsx';
 import { KeyIcon, EyeIcon, EyeSlashIcon } from './components/IconComponents.tsx';
 
+// --- BACKGROUND ANIMATION COMPONENT ---
+const FloatingIconsBackground = () => {
+    const icons = ['💰', '👍', '❤️', '💵', '😂', '💸', '📈', '🚀', '🔥', '📢', '✨', '🎉'];
+    const elements = Array.from({ length: 25 }).map((_, i) => {
+        const style = {
+            left: `${Math.random() * 100}%`,
+            fontSize: `${20 + Math.random() * 40}px`,
+            animationDelay: `${Math.random() * 25}s`,
+            animationDuration: `${15 + Math.random() * 20}s`,
+        };
+        const icon = icons[Math.floor(Math.random() * icons.length)];
+        return <span key={i} style={style}>{icon}</span>;
+    });
+
+    return <div className="floating-background" aria-hidden="true">{elements}</div>;
+};
+
+
 // Shared layout for Login and Signup pages
 export const AuthLayout: React.FC<{ title: string; children: ReactNode }> = ({ title, children }) => {
     return (
@@ -40,7 +58,7 @@ const LoginPage: React.FC = () => {
     }
 
     return (
-        <div className="flex items-center justify-center min-h-screen p-4" style={{
+        <div className="relative flex items-center justify-center min-h-screen p-4 overflow-hidden" style={{
             backgroundColor: '#0c0a09',
             backgroundImage: `
                 radial-gradient(at 20% 20%, hsla(278, 87%, 55%, 0.15) 0px, transparent 50%),
@@ -49,6 +67,7 @@ const LoginPage: React.FC = () => {
                 radial-gradient(at 80% 80%, hsla(340, 87%, 55%, 0.15) 0px, transparent 50%)
             `
         }}>
+            <FloatingIconsBackground />
             <AuthLayout title="Sign In">
                 <p className="text-center text-gray-400">Welcome back! Please sign in to continue.</p>
                 {error && <p className="text-center text-red-400 bg-red-900/30 p-3 rounded-lg border border-red-500/50">{error}</p>}
