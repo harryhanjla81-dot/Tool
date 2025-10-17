@@ -34,17 +34,36 @@ export const useContentManager = (
         setCards(prev => [...prev, card]);
     }, []);
 
-    const handleGenerateContent = useCallback(async (customPrompt?: string) => {
+    const handleGenerateContent = useCallback(async (customPrompt?: string, imageFile?: File | null) => {
         setIsLoading(true);
         setCards([]); // Clear existing cards when generating new content
         setIsPreparingArticles(true);
 
         try {
+            let imageData: { mimeType: string; data: string } | undefined = undefined;
+            if (imageFile) {
+                 const base64data = await new Promise<string>((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.onloadend = () => {
+                        if (typeof reader.result === 'string') {
+                            resolve(reader.result.split(',')[1]);
+                        } else {
+                            reject(new Error('Failed to read file as data URL.'));
+                        }
+                    };
+                    reader.onerror = (error) => reject(error);
+                    reader.readAsDataURL(imageFile);
+                });
+                imageData = { mimeType: imageFile.type, data: base64data };
+            }
+
             const { postCount, selectedLanguage, selectedCountryCode, selectedEmotion, selectedContentType, selectedContentCategory, ...defaultStyles } = settings;
             const countryName = getCountryName(selectedCountryCode);
             
-            const fetchedData = customPrompt
-                ? await geminiService.fetchContentFromPrompt(customPrompt, postCount, selectedLanguage, selectedCountryCode, countryName, selectedEmotion)
+            const effectivePrompt = customPrompt || (imageData ? "Describe this image and create content based on it." : "");
+            
+            const fetchedData = (customPrompt || imageData)
+                ? await geminiService.fetchContentFromPrompt(effectivePrompt, postCount, selectedLanguage, selectedCountryCode, countryName, selectedEmotion, imageData)
                 : await geminiService.fetchContent(postCount, selectedContentType, selectedContentCategory, selectedLanguage, selectedCountryCode, countryName, selectedEmotion);
             
             const { articles: fetchedArticlesCore, sourcesByHeadline } = fetchedData;

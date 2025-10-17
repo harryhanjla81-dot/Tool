@@ -131,7 +131,8 @@ export async function fetchContentFromPrompt(
   languageCode: SelectedLanguageCode,
   countryCode: SelectedCountryCode,
   countryName: string,
-  emotion: SelectedEmotion
+  emotion: SelectedEmotion,
+  imageData?: { mimeType: string; data: string }
 ): Promise<{ articles: NewsArticleCore[], sourcesByHeadline: Record<string, GroundingSource[]> }> {
     const languageName = getLanguageName(languageCode);
     const emotionName = Emotions[emotion].split(' ')[1] || 'Neutral';
@@ -146,8 +147,13 @@ HINDI LANGUAGE INSTRUCTIONS:
 `
         : '';
 
+    const imageInstruction = imageData 
+        ? "The user has also provided an image for context. Your response should be inspired by, related to, or based on this image."
+        : "";
+
     const fullPrompt = `
 User has requested content based on the following prompt: "${prompt}".
+${imageInstruction}
 Please generate ${count} unique items. The content should be relevant for ${countryName} and in the ${languageName} language.
 ${languageInstruction}
 STYLE GUIDELINES:
@@ -170,12 +176,23 @@ Ensure headlines are distinct and summaries are informative.
 
     const requestParams: GenerateContentParameters = {
         model: TEXT_MODEL_NAME,
-        contents: fullPrompt,
+        contents: '', // will be set below
         config: {
           temperature: 0.8,
           tools: [{googleSearch: {}}],
         }
     };
+    
+    if (imageData) {
+        requestParams.contents = {
+            parts: [
+                { inlineData: { mimeType: imageData.mimeType, data: imageData.data } },
+                { text: fullPrompt }
+            ]
+        };
+    } else {
+        requestParams.contents = fullPrompt;
+    }
     
     return await executeContentFetch(requestParams);
 }

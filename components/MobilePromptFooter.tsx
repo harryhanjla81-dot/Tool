@@ -4,7 +4,7 @@ import * as geminiService from '../services/geminiService.ts';
 import Spinner from './Spinner.tsx';
 import { useNotification } from '../src/contexts/NotificationContext.tsx';
 
-type AiModel = 'chat' | 'recreate' | 'viral' | 'frame' | 'collage';
+type AiModel = 'chat' | 'recreate' | 'viral';
 
 interface MobilePromptFooterProps {
     onToggleControls: () => void;
@@ -40,9 +40,12 @@ const MobilePromptFooter: React.FC<MobilePromptFooterProps> = ({ onToggleControl
         }
     }, [selectedModel, addNotification]);
 
+    // FIX: Replaced `isOpen` with `isAiPanelOpen` as `isOpen` was used before declaration.
     useEffect(() => {
-        loadViralTopics();
-    }, [loadViralTopics]);
+        if (isAiPanelOpen) {
+            loadViralTopics();
+        }
+    }, [isAiPanelOpen, loadViralTopics]);
 
     const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
@@ -75,16 +78,16 @@ const MobilePromptFooter: React.FC<MobilePromptFooterProps> = ({ onToggleControl
                     }
                     break;
                 case 'chat':
-                     if (prompt.trim()) {
-                        await handleGenerateContent(prompt);
+                     if (prompt.trim() || imageFile) {
+                        await handleGenerateContent(prompt, imageFile);
                         setIsAiPanelOpen(false);
                     } else {
-                        addNotification('Please enter a prompt.', 'info');
+                        addNotification('Please enter a prompt or upload an image.', 'info');
                     }
                     break;
                 default:
                     if (prompt.trim()) {
-                        await handleGenerateContent(prompt);
+                        await handleGenerateContent(prompt, null);
                         setIsAiPanelOpen(false);
                     }
             }
@@ -184,7 +187,7 @@ const MobilePromptFooter: React.FC<MobilePromptFooterProps> = ({ onToggleControl
                                     className="w-full p-3 bg-gray-200 dark:bg-gray-700 rounded-full border-transparent focus:ring-2 focus:ring-primary resize-none"
                                     disabled={selectedModel === 'viral'}
                                 />
-                                <button type="submit" disabled={isLoading} className="p-3 rounded-full bg-primary text-primary-text disabled:opacity-50">
+                                <button type="submit" disabled={isLoading || selectedModel === 'viral'} className="p-3 rounded-full bg-primary text-primary-text disabled:opacity-50">
                                     {isLoading ? <Spinner size="sm" /> : <SparklesIcon />}
                                 </button>
                                 <input type="file" ref={fileInputRef} onChange={handleFileChange} accept="image/*" className="hidden" />
