@@ -1,26 +1,31 @@
-import React, { useState, FormEvent, ReactNode } from 'react';
+import React, { useState, FormEvent, ReactNode, useMemo } from 'react';
 import { useAuth } from './src/contexts/AuthContext.tsx';
 // Using named imports for Link and Navigate from react-router-dom to resolve module export errors.
 import { Link, Navigate } from 'react-router-dom';
 import Spinner from './components/Spinner.tsx';
 import { KeyIcon, EyeIcon, EyeSlashIcon } from './components/IconComponents.tsx';
 
-// --- BACKGROUND ANIMATION COMPONENT ---
-const FloatingIconsBackground = () => {
-    const icons = ['💰', '👍', '❤️', '💵', '😂', '💸', '📈', '🚀', '🔥', '📢', '✨', '🎉'];
-    const elements = Array.from({ length: 25 }).map((_, i) => {
+// --- BACKGROUND ANIMATION COMPONENT (memoized to prevent re-renders on auth state changes) ---
+const FloatingIconsBackground = React.memo(() => {
+    // Replaced '😂' with '😎' (cool) and '💡' (smart/idea).
+    const icons = ['💰', '👍', '❤️', '💵', '😎', '💸', '📈', '🚀', '🔥', '💡', '✨', '🎉'];
+    
+    // useMemo ensures the randomly generated styles are calculated only once.
+    const elements = useMemo(() => Array.from({ length: 30 }).map((_, i) => { // Increased count for a fuller effect
         const style = {
             left: `${Math.random() * 100}%`,
             fontSize: `${20 + Math.random() * 40}px`,
-            animationDelay: `${Math.random() * 25}s`,
-            animationDuration: `${15 + Math.random() * 20}s`,
+            // Reduced delay for faster appearance, and randomized duration for variety
+            animationDelay: `${Math.random() * 5}s`, // Start animations much sooner
+            animationDuration: `${20 + Math.random() * 15}s`, // Travel at varied but reasonable speeds
         };
         const icon = icons[Math.floor(Math.random() * icons.length)];
         return <span key={i} style={style}>{icon}</span>;
-    });
+    }), []); // Empty dependency array means this runs only once.
 
     return <div className="floating-background" aria-hidden="true">{elements}</div>;
-};
+});
+FloatingIconsBackground.displayName = 'FloatingIconsBackground'; // For better debugging
 
 
 // Shared layout for Login and Signup pages
