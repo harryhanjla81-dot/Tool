@@ -67,7 +67,6 @@ const AuthenticatedApp: React.FC = () => (
         <Route path="audience-insights" element={<AudienceInsightsPage />} />
         <Route path="2fa" element={<TwoFactorAuthPage />} />
         <Route path="about" element={<AboutPage />} />
-        <Route path="privacy-policy" element={<PrivacyPolicyPage />} />
         <Route path="community-chat" element={<CommunityChatPage />} />
         <Route path="pricing" element={<PricingPage />} />
         <Route path="*" element={<Navigate to="/feed" replace />} /> {/* Fallback for any other path */}
@@ -91,6 +90,7 @@ const App: React.FC = () => {
                       <Routes>
                         <Route path="/login" element={<LoginPage />} />
                         <Route path="/signup" element={<SignupPage />} />
+                        <Route path="/privacy-policy" element={<PrivacyPolicyPage />} />
                         <Route
                           path="/*"
                           element={
