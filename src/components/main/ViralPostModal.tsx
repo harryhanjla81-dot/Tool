@@ -7,10 +7,10 @@ import { useNotification } from '../../contexts/NotificationContext.tsx';
 interface ViralPostModalProps {
     isOpen: boolean;
     onClose: () => void;
-    onGenerate: (topic: string) => void;
+    onGenerateFromTopic: (topic: string) => void;
 }
 
-const ViralPostModal: React.FC<ViralPostModalProps> = ({ isOpen, onClose, onGenerate }) => {
+const ViralPostModal: React.FC<ViralPostModalProps> = ({ isOpen, onClose, onGenerateFromTopic }) => {
     const { addNotification } = useNotification();
     const [topic, setTopic] = useState('');
     const [trendingTopics, setTrendingTopics] = useState<string[]>([]);
@@ -19,7 +19,6 @@ const ViralPostModal: React.FC<ViralPostModalProps> = ({ isOpen, onClose, onGene
     const loadTopics = useCallback(async () => {
         setIsLoadingTopics(true);
         try {
-            // FIX: Removed apiKey argument. The service handles the key.
             const fetchedTopics = await geminiService.fetchTrendingTopics();
             setTrendingTopics(fetchedTopics);
         } catch (err: any) {
@@ -44,14 +43,14 @@ const ViralPostModal: React.FC<ViralPostModalProps> = ({ isOpen, onClose, onGene
     const handleSubmit = (e: FormEvent) => {
         e.preventDefault();
         if (topic.trim()) {
-            onGenerate(topic.trim());
+            onGenerateFromTopic(topic.trim());
             setTopic('');
             onClose();
         }
     };
 
     const handleSampleClick = (sampleTopic: string) => {
-        onGenerate(sampleTopic);
+        onGenerateFromTopic(sampleTopic);
         setTopic('');
         onClose();
     };

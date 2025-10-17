@@ -50,7 +50,7 @@ const Toast: React.FC<{ notification: Notification; onDismiss: () => void }> = (
 
   return (
     <div
-      className={`relative w-full max-w-sm p-4 my-2 overflow-hidden rounded-lg shadow-2xl border-l-4 ${typeClasses[notification.type]} ${isExiting ? 'toast-out' : 'toast-in'}`}
+      className={`relative w-full sm:max-w-sm p-4 my-2 overflow-hidden rounded-lg shadow-2xl border-l-4 ${typeClasses[notification.type]} ${isExiting ? 'toast-out' : 'toast-in'}`}
       role="alert"
     >
       <div className="flex items-start">
@@ -137,7 +137,7 @@ const NotificationSystem: React.FC = () => {
       {/* Toast Container */}
       <div className="fixed top-4 inset-x-4 flex flex-col items-center md:items-end md:inset-x-auto md:right-4 md:top-20 md:w-full md:max-w-sm z-[100] space-y-2 pointer-events-none">
         {activeToasts.map(toast => (
-          <div key={toast.id} className="pointer-events-auto">
+          <div key={toast.id} className="pointer-events-auto w-full">
             <Toast notification={toast} onDismiss={() => dismissToast(toast.id)} />
           </div>
         ))}
@@ -165,7 +165,7 @@ const NotificationSystem: React.FC = () => {
             <div className="fixed inset-0 bg-black/30 dark:bg-black/50 z-[95] backdrop-blur-sm" style={{animation: 'fade-in 0.3s ease-out'}}></div>
             <div
                 ref={panelRef}
-                className="fixed top-20 right-6 z-[100] w-full max-w-md bg-white/80 dark:bg-gray-800/80 backdrop-blur-lg rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-700 overflow-hidden flex flex-col"
+                className="fixed top-20 inset-x-4 md:inset-x-auto md:right-6 md:w-full md:max-w-md z-[100] bg-white/80 dark:bg-gray-800/80 backdrop-blur-lg rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-700 overflow-hidden flex flex-col"
                 style={{ transformOrigin: 'top right', animation: 'unfurl 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards' }}
             >
                 <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">

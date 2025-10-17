@@ -515,6 +515,31 @@ export interface ViralPostContent {
     image_prompt: string;
 }
 
+export async function getDetailsForViralTopic(topic: string): Promise<string> {
+    const client = getAiClient();
+    const prompt = `
+    The user has selected a short, sensational topic: "${topic}".
+    Your task is to act as a news researcher and provide a concise, factual, and neutral summary of this topic in 2-3 sentences. 
+    Use your knowledge and search capabilities to find the real story or context behind the topic.
+    The output should be ONLY the summary text. No headlines, no extra formatting. Just the explanation.
+    This summary will be used as the basis for creating a new piece of viral content.
+    `;
+    try {
+        const response = await client.models.generateContent({
+            model: TEXT_MODEL_NAME,
+            contents: prompt,
+            config: { 
+                tools: [{googleSearch: {}}],
+                temperature: 0.5
+            }
+        });
+        return response.text.trim();
+    } catch (error) {
+        throw handleApiError(error, 'getDetailsForViralTopic');
+    }
+}
+
+
 export async function generateViralPostContent(topic: string): Promise<ViralPostContent> {
   const client = getAiClient();
   const prompt = `

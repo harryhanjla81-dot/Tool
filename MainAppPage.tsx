@@ -25,6 +25,7 @@ import CustomColorPicker from './components/CustomColorPicker.tsx';
 import { OverlayTopIcon, OverlayBottomIcon, OverlayLeftIcon, OverlayRightIcon } from './components/IconComponents.tsx';
 import { useSettings } from './src/contexts/SettingsContext.tsx';
 import Spinner from './components/Spinner.tsx';
+import MobilePromptFooter from './components/MobilePromptFooter.tsx';
 
 // --- MOBILE UI HELPER COMPONENTS ---
 
@@ -169,6 +170,9 @@ const MainAppPage: React.FC = () => {
     const [cropRequest, setCropRequest] = useState<{ file: File; articleId: string } | null>(null);
     const [activeColorPicker, setActiveColorPicker] = useState<string | null>(null);
     
+    // New state for mobile controls
+    const [isMobileControlsOpen, setIsMobileControlsOpen] = useState(false);
+
     const contentManager = useContentManager(setCropRequest);
     const { cards, setCards, uploadingCardId } = contentManager;
 
@@ -239,12 +243,10 @@ const MainAppPage: React.FC = () => {
 
     const stylesForMobile = editingCard?.style ?? settings;
 
-    // FIX: Corrected function names and dependency array.
     const handleMobileStyleChange = useCallback(<K extends keyof CardStyleSettings>(key: K, value: CardStyleSettings[K]) => {
         if (editingCard) {
             handleUpdateCardStyle(editingCard.id, { [key]: value });
         } else {
-            // When not editing a specific card, update the defaults AND apply to all visible cards
             updateSetting(key, value as AppSettings[K]);
             handleUpdateAllCardStyles({ [key]: value });
         }
@@ -365,15 +367,24 @@ const MainAppPage: React.FC = () => {
                 />
             </div>
             
-            <ViralPostModal isOpen={isViralPostModalOpen} onClose={() => setIsViralPostModalOpen(false)} onGenerate={contentManager.handleGenerateViralPost} />
+            <ViralPostModal isOpen={isViralPostModalOpen} onClose={() => setIsViralPostModalOpen(false)} onGenerateFromTopic={contentManager.handleGenerateViralPostFromTopic} />
             <RecreateViralPostModal isOpen={isRecreateModalOpen} onClose={() => setIsRecreateModalOpen(false)} onRecreate={contentManager.handleRecreateFromImage} />
             {cropRequest && <ImageCropperModal imageFile={cropRequest.file} onClose={() => setCropRequest(null)} onCrop={(croppedDataUrl) => { contentManager.handleCropConfirm(cropRequest.articleId, croppedDataUrl); setCropRequest(null); }} />}
 
-            <MobileFooterToolbar
-                onGenerate={() => contentManager.handleGenerateContent()}
+            <MobilePromptFooter 
+                onToggleControls={() => setIsMobileControlsOpen(prev => !prev)}
+                contentManager={contentManager}
                 isLoading={contentManager.isLoading}
-                onSheetToggle={handleSheetToggle}
             />
+
+            {isMobileControlsOpen && (
+                 <MobileFooterToolbar
+                    onGenerate={() => contentManager.handleGenerateContent()}
+                    isLoading={contentManager.isLoading}
+                    onSheetToggle={handleSheetToggle}
+                />
+            )}
+           
             {activeSheet && (
                 <SettingsBottomSheet
                     title={activeSheet === 'headerAndHeadline' ? 'Header & Headline' : activeSheet.charAt(0).toUpperCase() + activeSheet.slice(1).replace(/([A-Z])/g, ' $1')}

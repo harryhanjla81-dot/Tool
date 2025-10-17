@@ -132,13 +132,13 @@ export const useContentManager = (
         }
     }, [settings, addNotification, updateCardState, addCard]);
 
-    const handleGenerateViralPost = useCallback(async (topic: string) => {
+    const handleGenerateViralPostFromTopic = useCallback(async (topic: string) => {
         const tempId = `viral-${Date.now()}`;
         const newPost: (ViralPost & { type: 'viral' }) = {
             id: tempId,
             type: 'viral',
             topic,
-            headline: 'Generating...',
+            headline: `Getting details for "${topic}"...`,
             summary: 'Please wait while the AI crafts the content.',
             imageUrl: null,
             isLoading: true,
@@ -147,17 +147,26 @@ export const useContentManager = (
         addCard(newPost);
     
         try {
-            const content = await geminiService.generateViralPostContent(topic);
+            // Step 1: Get detailed context for the topic
+            const detailedTopic = await geminiService.getDetailsForViralTopic(topic);
+            addNotification('Topic details received, generating content...', 'info');
+            updateCardState(tempId, { summary: detailedTopic });
+
+            // Step 2: Generate the content package (headline, summary, image_prompt)
+            const content = await geminiService.generateViralPostContent(detailedTopic);
             updateCardState(tempId, { headline: content.headline, summary: content.summary });
             
+            // Step 3: Generate the image from the prompt
             const imageUrl = await geminiService.generateViralImage(content.image_prompt);
             updateCardState(tempId, { imageUrl: imageUrl, isLoading: false });
+
             addNotification(`Viral post for "${topic}" generated!`, 'success');
         } catch (error: any) {
             updateCardState(tempId, { error: error.message, isLoading: false });
             addNotification(`Failed to generate viral post: ${error.message}`, 'error');
         }
     }, [addCard, addNotification, updateCardState]);
+
 
     const handleRecreateFromImage = useCallback(async (file: File, customCaption?: string) => {
         const tempId = `viral-recreate-${Date.now()}`;
@@ -416,7 +425,6 @@ export const useContentManager = (
         addNotification('All cards cleared.', 'info');
     };
 
-    // FIX: Add return statement to export all necessary state and functions.
     return {
         cards,
         setCards,
@@ -425,7 +433,7 @@ export const useContentManager = (
         isDownloadingAll,
         uploadingCardId,
         handleGenerateContent,
-        handleGenerateViralPost,
+        handleGenerateViralPostFromTopic,
         handleRecreateFromImage,
         handleGenerateAiImageForCard,
         handleLocalImageUpload,

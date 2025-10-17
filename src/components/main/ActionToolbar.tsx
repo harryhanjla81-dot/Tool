@@ -77,7 +77,7 @@ const ActionToolbar: React.FC<ActionToolbarProps> = ({
     return (
         <>
             <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm shadow-lg rounded-2xl p-4 mb-6 sticky top-2 z-20 border dark:border-gray-700/50">
-                <form onSubmit={handlePromptSubmit} className="prompt-bar-wrapper flex items-center gap-2 p-1.5 rounded-full mb-4 bg-white dark:bg-gray-900/50 border border-gray-300 dark:border-gray-700">
+                <form onSubmit={handlePromptSubmit} className="hidden md:flex prompt-bar-wrapper items-center gap-2 p-1.5 rounded-full mb-4 bg-white dark:bg-gray-900/50 border border-gray-300 dark:border-gray-700">
                      <input
                         type="text"
                         value={userPrompt}
