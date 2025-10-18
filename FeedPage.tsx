@@ -8,6 +8,7 @@ import { useNotification } from './src/contexts/NotificationContext.tsx';
 import { useAuthPrompt } from './src/contexts/AuthPromptContext.tsx';
 import { supabase } from './src/supabaseClient.ts';
 import { useLocation } from 'react-router-dom';
+import { useConfirmation } from './src/contexts/ConfirmationContext.tsx';
 
 // Local, self-contained Firebase type declaration to ensure stability.
 declare namespace firebase {
@@ -131,24 +132,39 @@ const CommentInput: React.FC<{ postId: string; onComment: (postId: string, text:
     return (
         <form onSubmit={handleCommentSubmit} className="flex items-start gap-3 mt-4">
             <UserAvatar name={currentUser?.displayName} photoURL={currentUser?.photoURL} className="w-8 h-8" />
-            <div className="flex-grow">
+            <div className="flex-grow relative">
                 <textarea
                     ref={textareaRef}
                     value={text}
                     onChange={e => setText(e.target.value)}
                     onFocus={() => { if (!currentUser) openAuthPrompt(); }}
                     placeholder="Write a comment..."
-                    className="w-full bg-gray-100 dark:bg-gray-700 border-transparent rounded-2xl p-2 px-3 focus:ring-primary focus:border-primary resize-none overflow-hidden"
+                    className="w-full bg-gray-100 dark:bg-gray-700 border-transparent rounded-2xl py-2 pl-3 pr-20 focus:ring-primary focus:border-primary resize-none overflow-hidden transition-all"
                     rows={1}
+                    onKeyDown={(e) => {
+                        if (e.key === 'Enter' && !e.shiftKey) {
+                            e.preventDefault();
+                            handleCommentSubmit(e);
+                        }
+                    }}
                 />
-                <button type="submit" disabled={!text.trim()} className={`mt-2 px-4 py-1 text-sm rounded-full font-semibold ${!text.trim() ? 'bg-gray-200 dark:bg-gray-600 text-gray-400' : 'bg-primary text-primary-text'}`}>Post</button>
+                <button 
+                    type="submit" 
+                    disabled={!text.trim()} 
+                    className={`absolute right-2 bottom-1.5 px-4 py-1 text-sm rounded-full font-semibold transition-colors ${!text.trim() ? 'bg-gray-300 dark:bg-gray-600 text-gray-500 cursor-not-allowed' : 'bg-primary text-primary-text'}`}
+                >
+                    Post
+                </button>
             </div>
         </form>
     );
 };
 
-const CommentItem: React.FC<{ comment: any; commentId: string; postId: string; onDeleteComment: (postId: string, commentId: string) => void; currentUser: firebase.User | null; }> = ({ comment, commentId, postId, onDeleteComment, currentUser }) => {
-    const isOwner = currentUser && currentUser.uid === comment.uid;
+const CommentItem: React.FC<{ comment: any; commentId: string; postId: string; postAuthorId: string; onDeleteComment: (postId: string, commentId: string) => void; currentUser: firebase.User | null; }> = ({ comment, commentId, postId, postAuthorId, onDeleteComment, currentUser }) => {
+    const isCommentOwner = currentUser && currentUser.uid === comment.uid;
+    const isPostOwner = currentUser && currentUser.uid === postAuthorId;
+    const canDelete = isCommentOwner || isPostOwner;
+
     return (
         <div className="flex items-start gap-3 group">
             <UserAvatar name={comment.authorName} photoURL={comment.authorPhotoURL} className="w-8 h-8" />
@@ -158,8 +174,8 @@ const CommentItem: React.FC<{ comment: any; commentId: string; postId: string; o
                         <p className="font-bold text-sm">{comment.authorName}</p>
                         <div className="flex items-center gap-2">
                              <p className="text-xs text-gray-500 dark:text-gray-400">{timeAgo(comment.timestamp)}</p>
-                             {isOwner && (
-                                <button onClick={() => onDeleteComment(postId, commentId)} className="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-red-500 transition-opacity">
+                             {canDelete && (
+                                <button onClick={() => onDeleteComment(postId, commentId)} className="opacity-50 hover:opacity-100 text-gray-400 hover:text-red-500 transition-opacity">
                                     <TrashIcon className="w-3 h-3" />
                                 </button>
                             )}
@@ -244,12 +260,14 @@ const PostCard: React.FC<{ post: FeedPost; onLike: (postId: string) => void; onS
                 <div className="p-4 border-t dark:border-gray-700/50">
                     <div className="mt-4 space-y-4 max-h-96 overflow-y-auto scrollbar-thin pr-2">
                         {post.comments && Object.keys(post.comments).length > 0 ? (
-                            Object.entries(post.comments).sort(([, a], [, b]) => a.timestamp - b.timestamp).map(([commentId, comment]) => (
+                            // FIX: Explicitly type the sort parameters to resolve 'unknown' type error.
+                            Object.entries(post.comments).sort(([, a]: [string, any], [, b]: [string, any]) => a.timestamp - b.timestamp).map(([commentId, comment]) => (
                                 <CommentItem 
                                     key={commentId} 
                                     comment={comment}
                                     commentId={commentId}
                                     postId={post.id}
+                                    postAuthorId={post.uid}
                                     onDeleteComment={onDeleteComment}
                                     currentUser={currentUser}
                                 />
@@ -396,6 +414,7 @@ const FeedPage: React.FC = () => {
     const { user, loading: authLoading } = useAuth();
     const { openAuthPrompt } = useAuthPrompt();
     const { addNotification } = useNotification();
+    const { confirmAction } = useConfirmation();
     const [posts, setPosts] = useState<FeedPost[]>([]);
     const [loading, setLoading] = useState(true);
     const location = useLocation();
@@ -491,14 +510,40 @@ const FeedPage: React.FC = () => {
     }, [user]);
     
     const handleDeleteComment = useCallback((postId: string, commentId: string) => {
-        if (!user) return;
+        if (!user) {
+            openAuthPrompt();
+            return;
+        }
         const commentRef = firebase.database().ref(`feed_posts/${postId}/comments/${commentId}`);
-        commentRef.once('value').then(snapshot => {
-            if (snapshot.val()?.uid === user.uid) {
-                commentRef.remove();
+        const postRef = firebase.database().ref(`feed_posts/${postId}`);
+
+        Promise.all([commentRef.once('value'), postRef.once('value')]).then(([commentSnapshot, postSnapshot]) => {
+            const comment = commentSnapshot.val();
+            const post = postSnapshot.val();
+            if (comment && post) {
+                const isCommentOwner = comment.uid === user.uid;
+                const isPostOwner = post.uid === user.uid;
+
+                if (isCommentOwner || isPostOwner) {
+                    confirmAction({
+                        title: 'Delete Comment?',
+                        message: 'Are you sure you want to permanently delete this comment?',
+                        confirmText: 'Delete',
+                        icon: <TrashIcon className="w-6 h-6 text-red-500" />,
+                        onConfirm: () => {
+                            commentRef.remove()
+                                .then(() => addNotification('Comment deleted.', 'success'))
+                                .catch(err => addNotification(`Error: ${err.message}`, 'error'));
+                        }
+                    });
+                } else {
+                    addNotification("You don't have permission to delete this comment.", 'error');
+                }
             }
+        }).catch(err => {
+            addNotification(`Could not verify permissions: ${err.message}`, 'error');
         });
-    }, [user]);
+    }, [user, openAuthPrompt, addNotification, confirmAction]);
 
     const handleDelete = useCallback((postId: string) => {
         if (!user) {
@@ -510,14 +555,20 @@ const FeedPage: React.FC = () => {
         postRef.once('value').then(snapshot => {
             const post = snapshot.val();
             if (post && post.uid === user.uid) {
-                if (window.confirm('Are you sure you want to delete this post?')) {
-                    postRef.remove()
-                        .then(() => addNotification('Post deleted.', 'success'))
-                        .catch(err => addNotification(`Error deleting post: ${err.message}`, 'error'));
-                }
+                confirmAction({
+                    title: 'Delete Post?',
+                    message: 'Are you sure you want to permanently delete this post and all its comments?',
+                    confirmText: 'Delete Post',
+                    icon: <TrashIcon className="w-6 h-6 text-red-500" />,
+                    onConfirm: () => {
+                        postRef.remove()
+                            .then(() => addNotification('Post deleted.', 'success'))
+                            .catch(err => addNotification(`Error deleting post: ${err.message}`, 'error'));
+                    }
+                });
             }
         });
-    }, [user, openAuthPrompt, addNotification]);
+    }, [user, openAuthPrompt, addNotification, confirmAction]);
 
 
     const handleShare = useCallback(async (post: FeedPost) => {
