@@ -4,7 +4,7 @@ import { useNotification } from './src/contexts/NotificationContext.tsx';
 import { useConfirmation } from './src/contexts/ConfirmationContext.tsx';
 import { FeedPost } from './types.ts';
 import Spinner from './components/Spinner.tsx';
-import { ThumbsUpIcon, ChatBubbleIcon, TrashIcon } from './components/IconComponents.tsx';
+import { ThumbsUpIcon, ChatBubbleIcon, TrashIcon, AddImageIcon } from './components/IconComponents.tsx';
 import UserAvatar from './components/UserAvatar.tsx';
 import { supabase } from './src/supabaseClient.ts';
 
@@ -105,64 +105,24 @@ const CreatePost: React.FC<{ onPostCreated: () => void }> = ({ onPostCreated }) 
     const [caption, setCaption] = useState('');
     const [file, setFile] = useState<File | null>(null);
     const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-    const [mediaType, setMediaType] = useState<'image' | 'video' | 'audio' | null>(null);
+    const [mediaType, setMediaType] = useState<'image' | 'video' | null>(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
     
-    // Voice Recording State
-    const [isRecording, setIsRecording] = useState(false);
-    const [recordingTime, setRecordingTime] = useState(0);
-    const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-    const recordingIntervalRef = useRef<number | null>(null);
-    
     const fileInputRef = useRef<HTMLInputElement>(null);
-    const audioInputRef = useRef<HTMLInputElement>(null);
 
-    const handleFileChange = (e: ChangeEvent<HTMLInputElement>, type: 'image' | 'video' | 'audio') => {
+    const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
         const selectedFile = e.target.files?.[0];
         if (!selectedFile) return;
+
+        const type = selectedFile.type.startsWith('video') ? 'video' : 'image';
 
         setFile(selectedFile);
         if (previewUrl) URL.revokeObjectURL(previewUrl);
 
-        if (type === 'image' || type === 'video') {
-            setPreviewUrl(URL.createObjectURL(selectedFile));
-        } else {
-            setPreviewUrl(null);
-        }
+        setPreviewUrl(URL.createObjectURL(selectedFile));
         setMediaType(type);
     };
 
-    const handleRecord = async () => {
-        if (isRecording) { // Stop recording
-            mediaRecorderRef.current?.stop();
-            if (recordingIntervalRef.current) clearInterval(recordingIntervalRef.current);
-            setIsRecording(false);
-        } else { // Start recording
-            try {
-                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                mediaRecorderRef.current = new MediaRecorder(stream);
-                const audioChunks: Blob[] = [];
-                mediaRecorderRef.current.ondataavailable = e => audioChunks.push(e.data);
-                mediaRecorderRef.current.onstop = () => {
-                    const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
-                    setFile(new File([audioBlob], `recording-${Date.now()}.webm`, { type: audioBlob.type }));
-                    setMediaType('audio');
-                    setPreviewUrl(null); 
-                    stream.getTracks().forEach(track => track.stop()); // Release microphone
-                };
-                mediaRecorderRef.current.start();
-                setIsRecording(true);
-                setRecordingTime(0);
-                recordingIntervalRef.current = window.setInterval(() => {
-                    setRecordingTime(prev => prev + 1);
-                }, 1000);
-            } catch (err) {
-                addNotification('Microphone access denied or not found.', 'error');
-                console.error("Microphone access error:", err);
-            }
-        }
-    };
-    
     const handleSubmit = async () => {
         if (!caption.trim() && !file) {
             addNotification('Please add a caption or a file to post.', 'info');
@@ -174,11 +134,9 @@ const CreatePost: React.FC<{ onPostCreated: () => void }> = ({ onPostCreated }) 
             let mediaUrl: string | undefined;
             let finalMediaType: 'image' | 'video' | 'audio' | undefined;
 
-            // Step 1: Handle file upload to Supabase Storage if a file is present
             if (file && mediaType) {
                 const filePath = `feed-media/${user!.uid}/${Date.now()}_${file.name}`;
                 
-                // Upload the file to the 'feed-media' bucket in Supabase
                 const { error: uploadError } = await supabase.storage
                     .from('feed-media')
                     .upload(filePath, file, {
@@ -190,7 +148,6 @@ const CreatePost: React.FC<{ onPostCreated: () => void }> = ({ onPostCreated }) 
                     throw new Error(`Supabase upload error: ${uploadError.message}`);
                 }
 
-                // Get the public URL of the uploaded file
                 const { data } = supabase.storage
                     .from('feed-media')
                     .getPublicUrl(filePath);
@@ -203,7 +160,6 @@ const CreatePost: React.FC<{ onPostCreated: () => void }> = ({ onPostCreated }) 
                 finalMediaType = mediaType;
             }
 
-            // Step 2: Create the post data object for Firebase Realtime Database
             const postData: Omit<FeedPost, 'id'> = {
                 uid: user!.uid,
                 authorName: user!.displayName || 'Anonymous',
@@ -212,16 +168,14 @@ const CreatePost: React.FC<{ onPostCreated: () => void }> = ({ onPostCreated }) 
                 timestamp: firebase.database.ServerValue.TIMESTAMP as any,
                 likes: {},
                 ...(mediaUrl && { mediaUrl }),
-                ...(finalMediaType && { mediaType: finalMediaType }),
+                ...(finalMediaType && { mediaType: finalMediaType as 'image' | 'video' | 'audio' }),
             };
             
-            // Step 3: Save the post data to Firebase
             await firebase.database().ref('feed_posts').push(postData);
 
             addNotification('Post created successfully!', 'success');
             onPostCreated();
             
-            // Step 4: Reset the form
             setCaption(''); 
             setFile(null); 
             setPreviewUrl(null); 
@@ -236,41 +190,47 @@ const CreatePost: React.FC<{ onPostCreated: () => void }> = ({ onPostCreated }) 
 
     return (
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 border dark:border-gray-700">
-            <div className="flex gap-4">
+            <div className="flex items-start gap-3">
                 <UserAvatar name={user?.displayName || null} photoURL={user?.photoURL} />
-                <textarea 
-                    value={caption}
-                    onChange={e => setCaption(e.target.value)}
-                    placeholder={`What's on your mind, ${user?.displayName || 'User'}?`} 
-                    className="w-full bg-gray-100 dark:bg-gray-700 rounded-lg p-3 border-transparent focus:ring-2 focus:ring-primary"
-                    rows={2}
-                />
+                <div className="relative flex-grow">
+                    <textarea 
+                        value={caption}
+                        onChange={e => setCaption(e.target.value)}
+                        placeholder={`What's on your mind, ${user?.displayName || 'User'}?`} 
+                        className="w-full bg-gray-100 dark:bg-gray-700 rounded-xl p-3 pr-12 border-transparent focus:ring-2 focus:ring-primary resize-none transition-all duration-200"
+                        rows={1}
+                        onInput={(e) => {
+                            const target = e.target as HTMLTextAreaElement;
+                            target.style.height = 'auto';
+                            target.style.height = `${target.scrollHeight}px`;
+                        }}
+                    />
+                    <button 
+                        onClick={() => fileInputRef.current?.click()} 
+                        className="absolute right-2 top-1/2 -translate-y-1/2 p-2 text-gray-500 dark:text-gray-400 hover:text-primary dark:hover:text-primary-light transition-colors"
+                        title="Add Image or Video"
+                    >
+                      <AddImageIcon className="w-6 h-6"/>
+                    </button>
+                    <input type="file" ref={fileInputRef} onChange={handleFileChange} accept="image/*,video/*" className="hidden" />
+                </div>
             </div>
-            {previewUrl && mediaType !== 'audio' && (
+            
+            {previewUrl && mediaType && (
                 <div className="mt-4 relative max-h-96">
                     {mediaType === 'image' && <img src={previewUrl} className="max-h-96 rounded-lg mx-auto" alt="Preview" />}
                     {mediaType === 'video' && <video src={previewUrl} className="max-h-96 rounded-lg mx-auto" controls />}
-                    <button onClick={() => { setFile(null); setPreviewUrl(null); }} className="absolute top-2 right-2 p-1 bg-black/50 text-white rounded-full">&times;</button>
+                    <button onClick={() => { setFile(null); setPreviewUrl(null); setMediaType(null); }} className="absolute top-2 right-2 p-1 bg-black/50 text-white rounded-full leading-none w-6 h-6 flex items-center justify-center">&times;</button>
                 </div>
             )}
-            {file && mediaType === 'audio' && (
-                 <div className="mt-4 text-sm text-gray-500">Audio file selected: {file.name}</div>
-            )}
-            <div className="mt-3 pt-3 border-t dark:border-gray-700 flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                    <input type="file" ref={fileInputRef} onChange={(e) => handleFileChange(e, e.target.files?.[0]?.type.startsWith('video') ? 'video' : 'image')} accept="image/*,video/*" className="hidden" />
-                    <input type="file" ref={audioInputRef} onChange={(e) => handleFileChange(e, 'audio')} accept="audio/*" className="hidden" />
-
-                    <button onClick={() => fileInputRef.current?.click()} className="flex items-center gap-2 px-3 py-2 text-sm rounded-md hover:bg-gray-100 dark:hover:bg-gray-700">📷 Image/Video</button>
-                    <button onClick={() => audioInputRef.current?.click()} className="flex items-center gap-2 px-3 py-2 text-sm rounded-md hover:bg-gray-100 dark:hover:bg-gray-700">🎵 Audio</button>
-                    <button onClick={handleRecord} className={`flex items-center gap-2 px-3 py-2 text-sm rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 ${isRecording ? 'text-red-500' : ''}`}>
-                        🎤 {isRecording ? `Stop (${Math.floor(recordingTime / 60)}:${(recordingTime % 60).toString().padStart(2, '0')})` : 'Record Voice'}
+            
+            {(caption.trim() || file) && (
+                 <div className="mt-3 pt-3 border-t dark:border-gray-700 flex justify-end">
+                    <button onClick={handleSubmit} disabled={isSubmitting} className="px-8 py-2 bg-primary text-primary-text font-bold rounded-full disabled:opacity-50 transition-transform hover:scale-105">
+                        {isSubmitting ? <Spinner size="sm" /> : 'Post'}
                     </button>
                 </div>
-                <button onClick={handleSubmit} disabled={isSubmitting} className="px-6 py-2 bg-primary text-primary-text font-bold rounded-full disabled:opacity-50">
-                    {isSubmitting ? <Spinner size="sm" /> : 'Post'}
-                </button>
-            </div>
+            )}
         </div>
     );
 };
