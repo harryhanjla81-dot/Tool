@@ -11,6 +11,7 @@ import { FBPage } from '../types.ts';
 import Spinner from './Spinner.tsx';
 import { useTheme } from '../src/contexts/ThemeContext.tsx';
 import { useApiKeys } from '../src/contexts/ApiKeysContext.tsx';
+import { useAuthPrompt } from '../src/contexts/AuthPromptContext.tsx';
 
 
 // --- Page Selector Component ---
@@ -85,7 +86,8 @@ interface LayoutProps {
 }
 
 const Layout: React.FC<LayoutProps> = ({ children }) => {
-  const { logout } = useAuth();
+  const { user, logout } = useAuth();
+  const { openAuthPrompt } = useAuthPrompt();
   const { sidebarControls, isSidebarOpen, toggleSidebar } = useSidebar();
   const { headerActions } = usePageActions();
   const { isModalOpen: isApiKeysModalOpen, toggleModal: closeApiKeysModal } = useApiKeys();
@@ -126,6 +128,13 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     }
   }, [sidebarControls]); // This dependency is crucial: the effect runs when the sidebar content is replaced
 
+  const handleProtectedLinkClick = (e: React.MouseEvent) => {
+    if (!user) {
+        e.preventDefault();
+        openAuthPrompt();
+    }
+  };
+
   const navLinkClasses = ({ isActive }: { isActive: boolean }): string => {
     const baseClasses = 'flex flex-col items-center justify-center p-2 rounded-lg transition-colors duration-200';
     const activeClass = 'bg-primary/10 text-primary dark:bg-primary/20';
@@ -153,21 +162,21 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                     <p className="text-xs font-semibold text-gray-400 uppercase px-2 mb-2">Apps</p>
                     <ul className="grid grid-cols-3 gap-2">
                         <li><NavLink to="/feed" className={navLinkClasses} title="Feed"><FeedIcon className="w-6 h-6" /><span className="text-xs mt-1">Feed</span></NavLink></li>
-                        <li><NavLink to="/dashboard" className={navLinkClasses} title="Content Generator"><DocumentTextIcon className="w-6 h-6" /><span className="text-xs mt-1">Generator</span></NavLink></li>
-                        <li><NavLink to="/cross-post" className={navLinkClasses} title="Cross Post"><CrossPostIcon className="w-6 h-6" /><span className="text-xs mt-1">Cross-Post</span></NavLink></li>
-                        <li><NavLink to="/uploader" className={navLinkClasses} title="Scheduler"><UploadIcon className="w-6 h-6" /><span className="text-xs mt-1">Scheduler</span></NavLink></li>
-                        <li><NavLink to="/manage-posts" className={navLinkClasses} title="Manage Posts"><ClipboardListIcon className="w-6 h-6" /><span className="text-xs mt-1">Posts</span></NavLink></li>
-                        <li><NavLink to="/messages" className={navLinkClasses} title="Messages"><ChatBubbleLeftRightIcon className="w-6 h-6" /><span className="text-xs mt-1">Messages</span></NavLink></li>
-                        <li><NavLink to="/community-chat" className={navLinkClasses} title="Community Chat"><ChatBubbleBottomCenterTextIcon className="w-6 h-6" /><span className="text-xs mt-1">Community</span></NavLink></li>
-                        <li><NavLink to="/audience-insights" className={navLinkClasses} title="Audience Insights"><UserGroupIcon className="w-6 h-6" /><span className="text-xs mt-1">Audience</span></NavLink></li>
+                        <li><NavLink to="/dashboard" onClick={handleProtectedLinkClick} className={navLinkClasses} title="Content Generator"><DocumentTextIcon className="w-6 h-6" /><span className="text-xs mt-1">Generator</span></NavLink></li>
+                        <li><NavLink to="/cross-post" onClick={handleProtectedLinkClick} className={navLinkClasses} title="Cross Post"><CrossPostIcon className="w-6 h-6" /><span className="text-xs mt-1">Cross-Post</span></NavLink></li>
+                        <li><NavLink to="/uploader" onClick={handleProtectedLinkClick} className={navLinkClasses} title="Scheduler"><UploadIcon className="w-6 h-6" /><span className="text-xs mt-1">Scheduler</span></NavLink></li>
+                        <li><NavLink to="/manage-posts" onClick={handleProtectedLinkClick} className={navLinkClasses} title="Manage Posts"><ClipboardListIcon className="w-6 h-6" /><span className="text-xs mt-1">Posts</span></NavLink></li>
+                        <li><NavLink to="/messages" onClick={handleProtectedLinkClick} className={navLinkClasses} title="Messages"><ChatBubbleLeftRightIcon className="w-6 h-6" /><span className="text-xs mt-1">Messages</span></NavLink></li>
+                        <li><NavLink to="/community-chat" onClick={handleProtectedLinkClick} className={navLinkClasses} title="Community Chat"><ChatBubbleBottomCenterTextIcon className="w-6 h-6" /><span className="text-xs mt-1">Community</span></NavLink></li>
+                        <li><NavLink to="/audience-insights" onClick={handleProtectedLinkClick} className={navLinkClasses} title="Audience Insights"><UserGroupIcon className="w-6 h-6" /><span className="text-xs mt-1">Audience</span></NavLink></li>
                     </ul>
                 </nav>
                 <div className="border-b border-gray-200 dark:border-white/10 pb-2 mb-2">
                      <p className="text-xs font-semibold text-gray-400 uppercase px-2 mb-2">Account</p>
                     <ul className="grid grid-cols-3 gap-2">
-                        <li><NavLink to="/2fa" className={navLinkClasses} title="2FA Codes"><ShieldCheckIcon className="w-6 h-6" /><span className="text-xs mt-1">2FA</span></NavLink></li>
-                        <li><NavLink to="/pricing" className={navLinkClasses} title="Pricing & Plans"><CurrencyDollarIcon className="w-6 h-6" /><span className="text-xs mt-1">Pricing</span></NavLink></li>
-                        <li><NavLink to="/about" className={navLinkClasses} title="About & Contact"><InformationCircleIcon className="w-6 h-6" /><span className="text-xs mt-1">About</span></NavLink></li>
+                        <li><NavLink to="/2fa" onClick={handleProtectedLinkClick} className={navLinkClasses} title="2FA Codes"><ShieldCheckIcon className="w-6 h-6" /><span className="text-xs mt-1">2FA</span></NavLink></li>
+                        <li><NavLink to="/pricing" onClick={handleProtectedLinkClick} className={navLinkClasses} title="Pricing & Plans"><CurrencyDollarIcon className="w-6 h-6" /><span className="text-xs mt-1">Pricing</span></NavLink></li>
+                        <li><NavLink to="/about" onClick={handleProtectedLinkClick} className={navLinkClasses} title="About & Contact"><InformationCircleIcon className="w-6 h-6" /><span className="text-xs mt-1">About</span></NavLink></li>
                         <li><NavLink to="/privacy-policy" className={navLinkClasses} title="Privacy Policy"><LockClosedIcon className="w-6 h-6" /><span className="text-xs mt-1">Privacy</span></NavLink></li>
                     </ul>
                 </div>
@@ -179,13 +188,21 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
             
             <div className="flex-shrink-0 p-4 border-t border-gray-200 dark:border-white/10">
                 <div className="flex items-center gap-2">
-                    <button onClick={logout} className="w-full flex items-center justify-center gap-3 p-3 rounded-lg text-red-500 bg-red-500/10 hover:bg-red-500/20 transition-colors" title="Logout">
-                        <ArrowLeftOnRectangleIcon className="w-6 h-6" />
-                        <span className="font-semibold">Logout</span>
-                    </button>
-                    <button onClick={() => setLocalIsSettingsModalOpen(true)} className="flex-shrink-0 p-3 rounded-lg text-gray-500 dark:text-gray-400 bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 transition-colors" title="Settings">
-                        <Cog6ToothIcon className="w-6 h-6" />
-                    </button>
+                    {user ? (
+                        <>
+                            <button onClick={logout} className="w-full flex items-center justify-center gap-3 p-3 rounded-lg text-red-500 bg-red-500/10 hover:bg-red-500/20 transition-colors" title="Logout">
+                                <ArrowLeftOnRectangleIcon className="w-6 h-6" />
+                                <span className="font-semibold">Logout</span>
+                            </button>
+                            <button onClick={() => setLocalIsSettingsModalOpen(true)} className="flex-shrink-0 p-3 rounded-lg text-gray-500 dark:text-gray-400 bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 transition-colors" title="Settings">
+                                <Cog6ToothIcon className="w-6 h-6" />
+                            </button>
+                        </>
+                    ) : (
+                        <button onClick={openAuthPrompt} className="w-full flex items-center justify-center gap-3 p-3 rounded-lg bg-primary text-primary-text hover:bg-primary-hover transition-colors" title="Login / Sign Up">
+                            <span className="font-semibold">Login / Sign Up</span>
+                        </button>
+                    )}
                 </div>
             </div>
         </aside>

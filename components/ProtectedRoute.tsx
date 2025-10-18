@@ -1,5 +1,9 @@
+// This component is no longer used in the new public-first architecture.
+// Authentication checks are now handled within components (e.g., for actions)
+// or via onClick handlers in the Layout for navigation.
+// This file can be safely removed or kept for future reference.
+
 import React from 'react';
-// Using named import for Navigate from react-router-dom to resolve module export error.
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '../src/contexts/AuthContext.tsx';
 import Spinner from './Spinner.tsx';

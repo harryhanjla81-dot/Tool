@@ -40,7 +40,8 @@ declare namespace firebase {
         remove(): Promise<void>;
         set(value: any): Promise<void>;
         push(value: any): Promise<DatabaseReference>;
-        on(eventType: string, callback: (snapshot: any) => any, cancelCallbackOrContext?: object | null, context?: object | null): (a: any | null, b?: string) => any;
+        // FIX: Added ((error: Error) => void) to the type of cancelCallbackOrContext to allow for a failure callback.
+        on(eventType: string, callback: (snapshot: any) => any, cancelCallbackOrContext?: ((error: Error) => void) | object | null, context?: object | null): (a: any | null, b?: string) => any;
         off(eventType: string, callback?: (snapshot: any) => any): void;
         once(eventType: string): Promise<any>;
         orderByChild(path: string): DatabaseReference;
