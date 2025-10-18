@@ -132,14 +132,15 @@ const CommentInput: React.FC<{ postId: string; onComment: (postId: string, text:
     return (
         <form onSubmit={handleCommentSubmit} className="flex items-start gap-3 mt-4">
             <UserAvatar name={currentUser?.displayName} photoURL={currentUser?.photoURL} className="w-8 h-8" />
-            <div className="flex-grow relative">
+            <div className="flex-grow flex items-end gap-2 bg-gray-100 dark:bg-gray-700 rounded-2xl px-3 py-2 transition-all focus-within:ring-2 focus-within:ring-offset-2 dark:focus-within:ring-offset-gray-800 focus-within:ring-primary">
                 <textarea
                     ref={textareaRef}
                     value={text}
                     onChange={e => setText(e.target.value)}
                     onFocus={() => { if (!currentUser) openAuthPrompt(); }}
                     placeholder="Write a comment..."
-                    className="w-full bg-gray-100 dark:bg-gray-700 border-transparent rounded-2xl py-2 pl-3 pr-20 focus:ring-primary focus:border-primary resize-none overflow-hidden transition-all"
+                    className="w-full bg-transparent border-none focus:ring-0 focus:outline-none resize-none overflow-y-hidden p-0 leading-tight"
+                    style={{ outline: 'none', boxShadow: 'none' }}
                     rows={1}
                     onKeyDown={(e) => {
                         if (e.key === 'Enter' && !e.shiftKey) {
@@ -151,7 +152,7 @@ const CommentInput: React.FC<{ postId: string; onComment: (postId: string, text:
                 <button 
                     type="submit" 
                     disabled={!text.trim()} 
-                    className={`absolute right-2 bottom-1.5 px-4 py-1 text-sm rounded-full font-semibold transition-colors ${!text.trim() ? 'bg-gray-300 dark:bg-gray-600 text-gray-500 cursor-not-allowed' : 'bg-primary text-primary-text'}`}
+                    className={`flex-shrink-0 px-4 py-1.5 text-sm rounded-full font-semibold transition-colors ${!text.trim() ? 'bg-gray-300 dark:bg-gray-600 text-gray-500 cursor-not-allowed' : 'bg-primary text-primary-text'}`}
                 >
                     Post
                 </button>
