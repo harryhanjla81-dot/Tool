@@ -206,7 +206,7 @@ const CreatePost: React.FC<{ onPostCreated: () => void }> = ({ onPostCreated }) 
                         value={caption}
                         onChange={e => setCaption(e.target.value)}
                         placeholder={`What's on your mind, ${user?.displayName || 'User'}?`} 
-                        className="w-full bg-transparent p-3 pl-4 pr-12 border-none focus:ring-0 resize-none transition-all duration-200"
+                        className="w-full bg-transparent p-3 pl-4 pr-12 border-none focus:ring-0 focus:outline-none resize-none transition-all duration-200"
                         rows={1}
                         onInput={(e) => {
                             const target = e.target as HTMLTextAreaElement;
