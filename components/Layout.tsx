@@ -12,6 +12,7 @@ import Spinner from './Spinner.tsx';
 import { useTheme } from '../src/contexts/ThemeContext.tsx';
 import { useApiKeys } from '../src/contexts/ApiKeysContext.tsx';
 import { useAuthPrompt } from '../src/contexts/AuthPromptContext.tsx';
+import NotificationPermissionManager from './NotificationPermissionManager.tsx';
 
 
 // --- Page Selector Component ---
@@ -227,7 +228,10 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                     <NotificationSystem />
                 </header>
                 <main className="flex-1 overflow-x-hidden overflow-y-auto">
-                    <div className="p-2 md:p-4 lg:p-6">{children}</div>
+                    <div className="p-2 md:p-4 lg:p-6">
+                        <NotificationPermissionManager />
+                        {children}
+                    </div>
                 </main>
             </div>
         </div>

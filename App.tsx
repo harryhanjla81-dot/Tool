@@ -74,6 +74,20 @@ const AppContent: React.FC = () => (
 );
 
 const App: React.FC = () => {
+  useEffect(() => {
+    if ('serviceWorker' in navigator) {
+      // FIX: Use the user's canonical domain to register the service worker,
+      // which is required for it to work correctly in production and avoid origin mismatch errors.
+      const swUrl = 'https://hanjla.vercel.app/firebase-messaging-sw.js';
+      navigator.serviceWorker.register(swUrl)
+        .then(registration => {
+          console.log('Service Worker registered successfully:', registration);
+        }).catch(err => {
+          console.error('Service Worker registration failed:', err);
+        });
+    }
+  }, []);
+  
   return (
     <>
       <div id="export-board" style={{ position: 'fixed', left: '-9999px', top: '-9999px', width: '1080px', height: '1080px' }}></div>

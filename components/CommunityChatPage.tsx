@@ -180,7 +180,7 @@ const CommunityChatPage: React.FC = () => {
                 const uids: string[] = [];
                 snap.forEach((child: any) => { if (child.val() && child.key !== (window as any)._chatUid) uids.push(child.key!); });
                 if (uids.length > 0) {
-                  const names = uids.map(uid => userProfiles[uid]?.displayName || 'Someone');
+                  const names = uids.map(uid => userProfiles[uid]?.name || 'Someone');
                   $typingIndicator.style.display = 'block';
                   $typingIndicator.textContent = names.length === 1 ? `${names[0]} is typing…` : 'Several people are typing…';
                 } else {
@@ -266,7 +266,7 @@ const CommunityChatPage: React.FC = () => {
               const { uid, text, ts, img, replyToUid, replyText, readBy } = m;
               const author = userProfiles[uid];
               if (!author) return;
-              const { displayName: name, photoURL } = author;
+              const { name, photoURL } = author;
               const date = new Date(ts || Date.now()); const dayStr = date.toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long' });
               if (dayStr !== lastDayLabel) {
                 const sep = document.createElement('div'); sep.className = 'relative text-center my-6';
@@ -295,7 +295,7 @@ const CommunityChatPage: React.FC = () => {
                   const replyBlock = document.createElement('div');
                   replyBlock.className = 'mb-2 p-2 border-l-2 opacity-80';
                   replyBlock.style.borderColor = isSelf ? 'rgba(255,255,255,0.5)' : 'var(--app-primary-color)';
-                  const replyName = userProfiles[replyToUid]?.displayName || 'User';
+                  const replyName = userProfiles[replyToUid]?.name || 'User';
                   replyBlock.innerHTML = `<strong class="text-xs">${replyName}</strong><p class="text-sm line-clamp-2">${replyText}</p>`;
                   bubble.appendChild(replyBlock);
               }

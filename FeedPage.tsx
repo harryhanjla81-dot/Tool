@@ -308,10 +308,15 @@ const CreatePost: React.FC = () => {
         if (!user || (!caption.trim() && !mediaFile)) return;
         setIsPosting(true);
         try {
+            const userProfileSnapshot = await firebase.database().ref(`users/${user.uid}`).once('value');
+            const userProfile = userProfileSnapshot.val();
+            const authorName = userProfile?.name || user.displayName || 'Anonymous';
+            const authorPhotoURL = userProfile?.photoURL || user.photoURL || null;
+
             const postData: any = {
                 uid: user.uid,
-                authorName: user.displayName || 'Anonymous',
-                authorPhotoURL: user.photoURL || null,
+                authorName: authorName,
+                authorPhotoURL: authorPhotoURL,
                 caption: caption.trim(),
                 timestamp: firebase.database.ServerValue.TIMESTAMP,
                 likes: {},
@@ -337,6 +342,10 @@ const CreatePost: React.FC = () => {
                         postData.mediaType = 'video';
                     }
                 }
+            }
+
+            if (!postData.caption && !postData.mediaUrl) {
+                throw new Error("Cannot create an empty post.");
             }
 
             await firebase.database().ref('feed_posts').push(postData);
@@ -498,17 +507,26 @@ const FeedPage: React.FC = () => {
         });
     }, [user, openAuthPrompt]);
 
-    const handleComment = useCallback((postId: string, text: string) => {
+    const handleComment = useCallback(async (postId: string, text: string) => {
         if (!user) return;
-        const commentData = {
-            uid: user.uid,
-            authorName: user.displayName || 'Anonymous',
-            authorPhotoURL: user.photoURL || null,
-            text: text,
-            timestamp: firebase.database.ServerValue.TIMESTAMP,
-        };
-        firebase.database().ref(`feed_posts/${postId}/comments`).push(commentData);
-    }, [user]);
+        try {
+            const userProfileSnapshot = await firebase.database().ref(`users/${user.uid}`).once('value');
+            const userProfile = userProfileSnapshot.val();
+            const authorName = userProfile?.name || user.displayName || 'Anonymous';
+            const authorPhotoURL = userProfile?.photoURL || user.photoURL || null;
+
+            const commentData = {
+                uid: user.uid,
+                authorName: authorName,
+                authorPhotoURL: authorPhotoURL,
+                text: text,
+                timestamp: firebase.database.ServerValue.TIMESTAMP,
+            };
+            await firebase.database().ref(`feed_posts/${postId}/comments`).push(commentData);
+        } catch (error: any) {
+            addNotification(`Failed to post comment: ${error.message}`, 'error');
+        }
+    }, [user, addNotification]);
     
     const handleDeleteComment = useCallback((postId: string, commentId: string) => {
         if (!user) {
