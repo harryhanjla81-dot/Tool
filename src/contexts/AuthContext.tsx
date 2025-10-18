@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { supabase } from '../supabaseClient.ts';
 
 // Local, self-contained Firebase type declaration to ensure stability.
 declare namespace firebase {
@@ -161,12 +162,25 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             
             if (user) {
                 let photoURL: string | null = null;
-                // Upload profile picture if provided
+                // Upload profile picture if provided to Supabase
                 if (profilePic) {
-                    const storageRef = firebase.storage().ref();
-                    const fileRef = storageRef.child(`profile_pictures/${user.uid}/${profilePic.name}`);
-                    const snapshot = await fileRef.put(profilePic);
-                    photoURL = await snapshot.ref.getDownloadURL();
+                    const filePath = `profile-pictures/${user.uid}/${Date.now()}_${profilePic.name}`;
+                    const { error: uploadError } = await supabase.storage
+                        .from('profile-pictures')
+                        .upload(filePath, profilePic, {
+                            cacheControl: '3600',
+                            upsert: true,
+                        });
+
+                    if (uploadError) {
+                        throw new Error(`Supabase upload error: ${uploadError.message}`);
+                    }
+
+                    const { data } = supabase.storage
+                        .from('profile-pictures')
+                        .getPublicUrl(filePath);
+
+                    photoURL = data.publicUrl;
                 }
 
                 // Update user profile in Firebase Auth

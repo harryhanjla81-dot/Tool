@@ -6,6 +6,7 @@ import { FeedPost } from './types.ts';
 import Spinner from './components/Spinner.tsx';
 import { ThumbsUpIcon, ChatBubbleIcon, TrashIcon } from './components/IconComponents.tsx';
 import UserAvatar from './components/UserAvatar.tsx';
+import { supabase } from './src/supabaseClient.ts';
 
 // Local, self-contained Firebase type declaration to ensure stability.
 declare namespace firebase {
@@ -177,10 +178,23 @@ const CreatePost: React.FC<{ onPostCreated: () => void }> = ({ onPostCreated }) 
             };
 
             if (file) {
-                const storageRef = firebase.storage().ref();
-                const fileRef = storageRef.child(`feed_media/${user!.uid}/${Date.now()}_${file.name}`);
-                const snapshot = await fileRef.put(file);
-                post.mediaUrl = await snapshot.ref.getDownloadURL();
+                const filePath = `feed-media/${user!.uid}/${Date.now()}_${file.name}`;
+                const { error: uploadError } = await supabase.storage
+                    .from('feed-media')
+                    .upload(filePath, file, {
+                        cacheControl: '3600',
+                        upsert: false,
+                    });
+                
+                if (uploadError) {
+                    throw new Error(`Supabase upload error: ${uploadError.message}`);
+                }
+
+                const { data } = supabase.storage
+                    .from('feed-media')
+                    .getPublicUrl(filePath);
+                
+                post.mediaUrl = data.publicUrl;
                 post.mediaType = mediaType!;
             }
             
