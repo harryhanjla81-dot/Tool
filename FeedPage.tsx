@@ -109,6 +109,7 @@ const CreatePost: React.FC<{ onPostCreated: () => void }> = ({ onPostCreated }) 
     const [isSubmitting, setIsSubmitting] = useState(false);
     
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const textareaRef = useRef<HTMLTextAreaElement>(null);
 
     const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
         const selectedFile = e.target.files?.[0];
@@ -180,6 +181,13 @@ const CreatePost: React.FC<{ onPostCreated: () => void }> = ({ onPostCreated }) 
             setFile(null); 
             setPreviewUrl(null); 
             setMediaType(null);
+            if (textareaRef.current) {
+                textareaRef.current.style.height = 'auto';
+                if(textareaRef.current.parentElement) {
+                    textareaRef.current.parentElement.style.borderRadius = '9999px';
+                }
+            }
+
 
         } catch (err: any) {
             addNotification(`Failed to create post: ${err.message}`, 'error');
@@ -189,25 +197,36 @@ const CreatePost: React.FC<{ onPostCreated: () => void }> = ({ onPostCreated }) 
     };
 
     return (
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 border dark:border-gray-700">
+        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-md p-4 border dark:border-gray-700">
             <div className="flex items-start gap-3">
                 <UserAvatar name={user?.displayName || null} photoURL={user?.photoURL} />
-                <div className="relative flex-grow">
+                <div className="relative flex-grow bg-gray-100 dark:bg-gray-700/50 rounded-full border border-gray-200 dark:border-gray-700 transition-all duration-300 focus-within:ring-2 focus-within:ring-primary focus-within:border-transparent">
                     <textarea 
+                        ref={textareaRef}
                         value={caption}
                         onChange={e => setCaption(e.target.value)}
                         placeholder={`What's on your mind, ${user?.displayName || 'User'}?`} 
-                        className="w-full bg-gray-100 dark:bg-gray-700 rounded-xl p-3 pr-12 border-transparent focus:ring-2 focus:ring-primary resize-none transition-all duration-200"
+                        className="w-full bg-transparent p-3 pl-4 pr-12 border-none focus:ring-0 resize-none transition-all duration-200"
                         rows={1}
                         onInput={(e) => {
                             const target = e.target as HTMLTextAreaElement;
                             target.style.height = 'auto';
-                            target.style.height = `${target.scrollHeight}px`;
+                            const newHeight = target.scrollHeight;
+                            target.style.height = `${Math.min(newHeight, 200)}px`; // Cap max height
+
+                            const parent = target.parentElement;
+                            if (parent) {
+                                if (newHeight > 50) { // Threshold for multi-line
+                                    parent.style.borderRadius = '24px';
+                                } else {
+                                    parent.style.borderRadius = '9999px';
+                                }
+                            }
                         }}
                     />
                     <button 
                         onClick={() => fileInputRef.current?.click()} 
-                        className="absolute right-2 top-1/2 -translate-y-1/2 p-2 text-gray-500 dark:text-gray-400 hover:text-primary dark:hover:text-primary-light transition-colors"
+                        className="absolute right-2 top-1/2 -translate-y-1/2 p-2 text-gray-500 dark:text-gray-400 hover:text-primary dark:hover:text-primary-light transition-colors rounded-full"
                         title="Add Image or Video"
                     >
                       <AddImageIcon className="w-6 h-6"/>
