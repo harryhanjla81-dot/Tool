@@ -162,10 +162,10 @@ const NotificationSystem: React.FC = () => {
       {/* Notification Panel */}
       {isPanelOpen && (
         <>
-            <div className="fixed inset-0 bg-black/60 z-[95]" style={{animation: 'fade-in 0.3s ease-out'}}></div>
+            <div className="fixed inset-0 bg-black/30 dark:bg-black/50 z-[95] backdrop-blur-sm" style={{animation: 'fade-in 0.3s ease-out'}}></div>
             <div
                 ref={panelRef}
-                className="fixed top-20 inset-x-4 md:inset-x-auto md:right-6 md:w-full md:max-w-md z-[100] bg-white dark:bg-gray-800 rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-700 overflow-hidden flex flex-col"
+                className="fixed top-20 inset-x-4 md:inset-x-auto md:right-6 md:w-full md:max-w-md z-[100] bg-white/80 dark:bg-gray-800/80 backdrop-blur-lg rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-700 overflow-hidden flex flex-col"
                 style={{ transformOrigin: 'top right', animation: 'unfurl 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards' }}
             >
                 <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">

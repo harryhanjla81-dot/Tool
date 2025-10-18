@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useAuth } from '../src/contexts/AuthContext.tsx';
+import { supabase } from '../src/supabaseClient.ts';
 
 // Local, self-contained Firebase type declaration to ensure stability.
 declare namespace firebase {
@@ -202,18 +203,59 @@ const CommunityChatPage: React.FC = () => {
               if (typingRef) typingRef.set(false);
             }
 
-            function handleImage() {
-              const file = $imgUpload.files?.[0]; if (!file || !currentRoom) return;
-              if (file.size > 2 * 1024 * 1024) { alert('Max 2MB image size'); $imgUpload.value = ''; return; }
-              const reader = new FileReader();
-              reader.onload = () => {
-                const payload: any = { uid: (window as any)._chatUid, text: '', img: reader.result, ts: Date.now() };
-                if (replyContext) { payload.replyToUid = replyContext.uid; payload.replyText = replyContext.text; }
-                db.ref('rooms/' + currentRoom + '/messages').push(payload);
-                $imgUpload.value = ''; if (replyContext) { replyContext = null; $replyPreview.style.display = 'none'; }
-                if (typingRef) typingRef.set(false);
-              };
-              reader.readAsDataURL(file);
+            async function handleImage() {
+                const file = $imgUpload.files?.[0];
+                if (!file || !currentRoom) return;
+                if (file.size > 5 * 1024 * 1024) { // Increased to 5MB
+                    alert('Max 5MB image size');
+                    $imgUpload.value = '';
+                    return;
+                }
+
+                $imgBtn.disabled = true;
+                $send.disabled = true;
+
+                try {
+                    const filePath = `chat-media/${user!.uid}/${Date.now()}_${file.name}`;
+                    const { error: uploadError } = await supabase.storage
+                        .from('feed-media') // Re-using the feed bucket
+                        .upload(filePath, file);
+
+                    if (uploadError) {
+                        throw new Error(`Supabase upload error: ${uploadError.message}`);
+                    }
+
+                    const { data } = supabase.storage
+                        .from('feed-media')
+                        .getPublicUrl(filePath);
+
+                    if (!data.publicUrl) {
+                        throw new Error('Could not get public URL for the uploaded image.');
+                    }
+                    
+                    const imageUrl = data.publicUrl;
+
+                    const payload: any = { uid: (window as any)._chatUid, text: '', img: imageUrl, ts: Date.now() };
+                    if (replyContext) {
+                        payload.replyToUid = replyContext.uid;
+                        payload.replyText = replyContext.text;
+                    }
+                    await db.ref('rooms/' + currentRoom + '/messages').push(payload);
+
+                    $imgUpload.value = '';
+                    if (replyContext) {
+                        replyContext = null;
+                        $replyPreview.style.display = 'none';
+                    }
+                    if (typingRef) typingRef.set(false);
+
+                } catch (err: any) {
+                    console.error("Image upload failed:", err);
+                    alert('Image upload failed: ' + err.message);
+                } finally {
+                    $imgBtn.disabled = false;
+                    $send.disabled = false;
+                }
             }
 
             function initials(name: string) { return name.trim().split(/\s+/).map(s => s[0]).join('').slice(0, 2).toUpperCase(); }

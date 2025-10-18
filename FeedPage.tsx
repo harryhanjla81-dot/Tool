@@ -164,21 +164,21 @@ const CreatePost: React.FC<{ onPostCreated: () => void }> = ({ onPostCreated }) 
     };
     
     const handleSubmit = async () => {
-        if (!caption.trim() && !file) return;
+        if (!caption.trim() && !file) {
+            addNotification('Please add a caption or a file to post.', 'info');
+            return;
+        }
         setIsSubmitting(true);
-        try {
-            const post: Omit<FeedPost, 'id'> = {
-                uid: user!.uid,
-                authorName: user!.displayName || 'Anonymous',
-                authorPhotoURL: user!.photoURL || '',
-                caption: caption.trim(),
-                // FIX: Cast ServerValue.TIMESTAMP to 'any' to satisfy the FeedPost['timestamp'] type of 'number'. Firebase correctly interprets this server-side placeholder.
-                timestamp: firebase.database.ServerValue.TIMESTAMP as any,
-                likes: {}
-            };
 
-            if (file) {
+        try {
+            let mediaUrl: string | undefined;
+            let finalMediaType: 'image' | 'video' | 'audio' | undefined;
+
+            // Step 1: Handle file upload to Supabase Storage if a file is present
+            if (file && mediaType) {
                 const filePath = `feed-media/${user!.uid}/${Date.now()}_${file.name}`;
+                
+                // Upload the file to the 'feed-media' bucket in Supabase
                 const { error: uploadError } = await supabase.storage
                     .from('feed-media')
                     .upload(filePath, file, {
@@ -190,19 +190,43 @@ const CreatePost: React.FC<{ onPostCreated: () => void }> = ({ onPostCreated }) 
                     throw new Error(`Supabase upload error: ${uploadError.message}`);
                 }
 
+                // Get the public URL of the uploaded file
                 const { data } = supabase.storage
                     .from('feed-media')
                     .getPublicUrl(filePath);
                 
-                post.mediaUrl = data.publicUrl;
-                post.mediaType = mediaType!;
+                if (!data.publicUrl) {
+                    throw new Error('Could not get public URL for the uploaded file.');
+                }
+                
+                mediaUrl = data.publicUrl;
+                finalMediaType = mediaType;
             }
+
+            // Step 2: Create the post data object for Firebase Realtime Database
+            const postData: Omit<FeedPost, 'id'> = {
+                uid: user!.uid,
+                authorName: user!.displayName || 'Anonymous',
+                authorPhotoURL: user!.photoURL || '',
+                caption: caption.trim(),
+                timestamp: firebase.database.ServerValue.TIMESTAMP as any,
+                likes: {},
+                ...(mediaUrl && { mediaUrl }),
+                ...(finalMediaType && { mediaType: finalMediaType }),
+            };
             
-            await firebase.database().ref('feed_posts').push(post);
+            // Step 3: Save the post data to Firebase
+            await firebase.database().ref('feed_posts').push(postData);
+
             addNotification('Post created successfully!', 'success');
             onPostCreated();
-            // Reset form
-            setCaption(''); setFile(null); setPreviewUrl(null); setMediaType(null);
+            
+            // Step 4: Reset the form
+            setCaption(''); 
+            setFile(null); 
+            setPreviewUrl(null); 
+            setMediaType(null);
+
         } catch (err: any) {
             addNotification(`Failed to create post: ${err.message}`, 'error');
         } finally {
