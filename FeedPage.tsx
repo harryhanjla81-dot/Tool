@@ -1,9 +1,9 @@
-import React, { useEffect, useState, useCallback, useRef, ChangeEvent } from 'react';
+import React, { useEffect, useState, useCallback, useRef, ChangeEvent, FormEvent } from 'react';
 import { useAuth } from './src/contexts/AuthContext.tsx';
 import { FeedPost } from './types.ts';
 import Spinner from './components/Spinner.tsx';
 import UserAvatar from './components/UserAvatar.tsx';
-import { ThumbsUpIcon, ChatBubbleIcon, ShareIcon, AddImageIcon, CloseIcon } from './components/IconComponents.tsx';
+import { ThumbsUpIcon, ChatBubbleIcon, ShareIcon, AddImageIcon, CloseIcon, TrashIcon } from './components/IconComponents.tsx';
 import { useNotification } from './src/contexts/NotificationContext.tsx';
 import { useAuthPrompt } from './src/contexts/AuthPromptContext.tsx';
 import { supabase } from './src/supabaseClient.ts';
@@ -47,7 +47,6 @@ declare namespace firebase {
         remove(): Promise<void>;
         set(value: any): Promise<void>;
         push(value: any): Promise<DatabaseReference>;
-        // FIX: Corrected the 'on' method signature to remove ambiguity between the error callback and context object.
         on(eventType: string, callback: (snapshot: any) => any, cancelCallback?: (error: Error) => any, context?: object | null): (snapshot: any) => any;
         off(eventType: string, callback?: (snapshot: any) => any): void;
         once(eventType: string): Promise<any>;
@@ -105,10 +104,77 @@ const timeAgo = (timestamp: number) => {
   return Math.floor(seconds) + " seconds ago";
 };
 
-const PostCard: React.FC<{ post: FeedPost; onLike: (postId: string) => void; onShare: (post: FeedPost) => void; currentUser: firebase.User | null; }> = ({ post, onLike, onShare, currentUser }) => {
+const CommentInput: React.FC<{ postId: string; onComment: (postId: string, text: string) => void; currentUser: firebase.User | null }> = ({ postId, onComment, currentUser }) => {
+    const [text, setText] = useState('');
     const { openAuthPrompt } = useAuthPrompt();
-    // FIX: Added useNotification hook to bring addNotification into scope.
-    const { addNotification } = useNotification();
+    const textareaRef = useRef<HTMLTextAreaElement>(null);
+    
+    const handleCommentSubmit = (e: FormEvent) => {
+        e.preventDefault();
+        if (!text.trim()) return;
+        if (!currentUser) {
+            openAuthPrompt();
+            return;
+        }
+        onComment(postId, text);
+        setText('');
+    };
+
+    useEffect(() => {
+        const textarea = textareaRef.current;
+        if (textarea) {
+            textarea.style.height = 'auto';
+            textarea.style.height = `${textarea.scrollHeight}px`;
+        }
+    }, [text]);
+
+    return (
+        <form onSubmit={handleCommentSubmit} className="flex items-start gap-3 mt-4">
+            <UserAvatar name={currentUser?.displayName} photoURL={currentUser?.photoURL} className="w-8 h-8" />
+            <div className="flex-grow">
+                <textarea
+                    ref={textareaRef}
+                    value={text}
+                    onChange={e => setText(e.target.value)}
+                    onFocus={() => { if (!currentUser) openAuthPrompt(); }}
+                    placeholder="Write a comment..."
+                    className="w-full bg-gray-100 dark:bg-gray-700 border-transparent rounded-2xl p-2 px-3 focus:ring-primary focus:border-primary resize-none overflow-hidden"
+                    rows={1}
+                />
+                <button type="submit" disabled={!text.trim()} className={`mt-2 px-4 py-1 text-sm rounded-full font-semibold ${!text.trim() ? 'bg-gray-200 dark:bg-gray-600 text-gray-400' : 'bg-primary text-primary-text'}`}>Post</button>
+            </div>
+        </form>
+    );
+};
+
+const CommentItem: React.FC<{ comment: any; commentId: string; postId: string; onDeleteComment: (postId: string, commentId: string) => void; currentUser: firebase.User | null; }> = ({ comment, commentId, postId, onDeleteComment, currentUser }) => {
+    const isOwner = currentUser && currentUser.uid === comment.uid;
+    return (
+        <div className="flex items-start gap-3 group">
+            <UserAvatar name={comment.authorName} photoURL={comment.authorPhotoURL} className="w-8 h-8" />
+            <div className="flex-grow">
+                <div className="bg-gray-100 dark:bg-gray-700 rounded-xl p-3">
+                    <div className="flex justify-between items-start">
+                        <p className="font-bold text-sm">{comment.authorName}</p>
+                        <div className="flex items-center gap-2">
+                             <p className="text-xs text-gray-500 dark:text-gray-400">{timeAgo(comment.timestamp)}</p>
+                             {isOwner && (
+                                <button onClick={() => onDeleteComment(postId, commentId)} className="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-red-500 transition-opacity">
+                                    <TrashIcon className="w-3 h-3" />
+                                </button>
+                            )}
+                        </div>
+                    </div>
+                    <p className="text-sm mt-1 whitespace-pre-wrap break-words">{comment.text}</p>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+const PostCard: React.FC<{ post: FeedPost; onLike: (postId: string) => void; onShare: (post: FeedPost) => void; onDelete: (postId: string) => void; onComment: (postId: string, text: string) => void; onDeleteComment: (postId: string, commentId: string) => void; currentUser: firebase.User | null; }> = ({ post, onLike, onShare, onDelete, onComment, onDeleteComment, currentUser }) => {
+    const { openAuthPrompt } = useAuthPrompt();
+    const [showComments, setShowComments] = useState(false);
     const isLiked = !!(currentUser && post.likes && post.likes[currentUser.uid]);
     const likeCount = Object.keys(post.likes || {}).length;
     const commentCount = Object.keys(post.comments || {}).length;
@@ -120,9 +186,11 @@ const PostCard: React.FC<{ post: FeedPost; onLike: (postId: string) => void; onS
             action();
         }
     };
+    
+    const isOwner = currentUser && currentUser.uid === post.uid;
 
     return (
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-md border dark:border-gray-700/50 overflow-hidden">
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-md border dark:border-gray-700/50 overflow-hidden relative">
             <div className="p-4 flex items-center gap-3">
                 <UserAvatar name={post.authorName} photoURL={post.authorPhotoURL} />
                 <div>
@@ -131,6 +199,12 @@ const PostCard: React.FC<{ post: FeedPost; onLike: (postId: string) => void; onS
                 </div>
             </div>
             
+            {isOwner && (
+                 <button onClick={() => handleAction(() => onDelete(post.id))} className="absolute top-4 right-4 p-1.5 rounded-full text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-red-500 transition-colors">
+                    <TrashIcon className="w-4 h-4" />
+                </button>
+            )}
+
             {post.caption && <p className="px-4 pb-4 whitespace-pre-wrap break-words">{post.caption}</p>}
             
             {post.mediaUrl && (
@@ -142,7 +216,7 @@ const PostCard: React.FC<{ post: FeedPost; onLike: (postId: string) => void; onS
 
             <div className="p-2 flex justify-between items-center text-sm text-gray-500 dark:text-gray-400">
                 {likeCount > 0 && <span>{likeCount} {likeCount === 1 ? 'like' : 'likes'}</span>}
-                {commentCount > 0 && <span>{commentCount} {commentCount === 1 ? 'comment' : 'comments'}</span>}
+                {commentCount > 0 && <span className="cursor-pointer hover:underline" onClick={() => handleAction(() => setShowComments(s => !s))}>{commentCount} {commentCount === 1 ? 'comment' : 'comments'}</span>}
             </div>
 
             <div className="flex border-t border-gray-200 dark:border-gray-700">
@@ -153,7 +227,7 @@ const PostCard: React.FC<{ post: FeedPost; onLike: (postId: string) => void; onS
                     <ThumbsUpIcon className="w-5 h-5" /> Like
                 </button>
                  <button 
-                    onClick={() => handleAction(() => addNotification("Commenting coming soon!", "info"))}
+                    onClick={() => handleAction(() => setShowComments(s => !s))}
                     className="flex-1 flex items-center justify-center gap-2 p-3 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700/50 transition-colors font-semibold"
                  >
                     <ChatBubbleIcon className="w-5 h-5" /> Comment
@@ -165,6 +239,28 @@ const PostCard: React.FC<{ post: FeedPost; onLike: (postId: string) => void; onS
                     <ShareIcon className="w-5 h-5" /> Share
                 </button>
             </div>
+            
+            {showComments && (
+                <div className="p-4 border-t dark:border-gray-700/50">
+                    <div className="mt-4 space-y-4 max-h-96 overflow-y-auto scrollbar-thin pr-2">
+                        {post.comments && Object.keys(post.comments).length > 0 ? (
+                            Object.entries(post.comments).sort(([, a], [, b]) => a.timestamp - b.timestamp).map(([commentId, comment]) => (
+                                <CommentItem 
+                                    key={commentId} 
+                                    comment={comment}
+                                    commentId={commentId}
+                                    postId={post.id}
+                                    onDeleteComment={onDeleteComment}
+                                    currentUser={currentUser}
+                                />
+                            ))
+                        ) : (
+                            <p className="text-sm text-center text-gray-500 py-4">No comments yet. Be the first to comment!</p>
+                        )}
+                    </div>
+                     <CommentInput postId={post.id} onComment={onComment} currentUser={currentUser} />
+                </div>
+            )}
         </div>
     );
 };
@@ -193,8 +289,14 @@ const CreatePost: React.FC = () => {
         if (!user || (!caption.trim() && !mediaFile)) return;
         setIsPosting(true);
         try {
-            let mediaUrl: string | undefined;
-            let mediaType: 'image' | 'video' | undefined;
+            const postData: any = {
+                uid: user.uid,
+                authorName: user.displayName || 'Anonymous',
+                authorPhotoURL: user.photoURL || null,
+                caption: caption.trim(),
+                timestamp: firebase.database.ServerValue.TIMESTAMP,
+                likes: {},
+            };
 
             if (mediaFile) {
                 const fileExt = mediaFile.name.split('.').pop()?.toLowerCase();
@@ -206,25 +308,17 @@ const CreatePost: React.FC = () => {
                 if (uploadError) throw new Error(`Supabase upload error: ${uploadError.message}`);
 
                 const { data } = supabase.storage.from('feed-media').getPublicUrl(filePath);
-                mediaUrl = data.publicUrl;
+                
+                if (data.publicUrl) {
+                    postData.mediaUrl = data.publicUrl;
 
-                if (['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(fileExt || '')) {
-                    mediaType = 'image';
-                } else if (['mp4', 'webm', 'mov'].includes(fileExt || '')) {
-                    mediaType = 'video';
+                    if (['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(fileExt || '')) {
+                        postData.mediaType = 'image';
+                    } else if (['mp4', 'webm', 'mov'].includes(fileExt || '')) {
+                        postData.mediaType = 'video';
+                    }
                 }
             }
-
-            const postData: Omit<FeedPost, 'id' | 'likes' | 'comments'> & { likes: Record<string, boolean> | 0 } = {
-                uid: user.uid,
-                authorName: user.displayName || 'Anonymous',
-                authorPhotoURL: user.photoURL || undefined,
-                caption: caption.trim(),
-                mediaUrl,
-                mediaType,
-                timestamp: Date.now(),
-                likes: 0 // Initialize likes as 0 as per Firebase rules
-            };
 
             await firebase.database().ref('feed_posts').push(postData);
 
@@ -299,7 +393,7 @@ const CreatePost: React.FC = () => {
 };
 
 const FeedPage: React.FC = () => {
-    const { user } = useAuth();
+    const { user, loading: authLoading } = useAuth();
     const { openAuthPrompt } = useAuthPrompt();
     const { addNotification } = useNotification();
     const [posts, setPosts] = useState<FeedPost[]>([]);
@@ -308,11 +402,10 @@ const FeedPage: React.FC = () => {
     const promptIntervalRef = useRef<number | null>(null);
 
     useEffect(() => {
-        // Ensure firebase is initialized before using it.
-        if (firebase.apps.length === 0) return;
+        if (authLoading) return; // Wait until auth state is resolved
 
         const db = firebase.database();
-        const feedRef = db.ref('feed_posts').orderByChild('timestamp').limitToLast(100);
+        const feedRef = db.ref('feed_posts').orderByChild('timestamp');
 
         const listener = feedRef.on('value', snapshot => {
             const feedData = snapshot.val();
@@ -323,7 +416,8 @@ const FeedPage: React.FC = () => {
                         ...value,
                         likes: value.likes || {}
                     }))
-                    .sort((a, b) => b.timestamp - a.timestamp);
+                    // FIX: Explicitly type the sort parameters to resolve 'unknown' type error.
+                    .sort((a: FeedPost, b: FeedPost) => b.timestamp - a.timestamp);
                 setPosts(postsArray);
             } else {
                 setPosts([]);
@@ -336,32 +430,46 @@ const FeedPage: React.FC = () => {
         });
 
         return () => feedRef.off('value', listener);
-    }, [addNotification]);
+    }, [addNotification, authLoading]);
 
     useEffect(() => {
+        if (authLoading) return;
+        
         const params = new URLSearchParams(location.search);
         const sharedPostId = params.get('post');
         if (sharedPostId && !user) {
-            openAuthPrompt();
+            // Clear any existing interval before setting a new one
+            if (promptIntervalRef.current) {
+                clearInterval(promptIntervalRef.current);
+            }
+            openAuthPrompt(); // Open immediately
             promptIntervalRef.current = window.setInterval(() => {
                 openAuthPrompt();
             }, 20000);
         }
 
+        // Cleanup interval if user logs in or navigates away
         return () => {
             if (promptIntervalRef.current) {
                 clearInterval(promptIntervalRef.current);
             }
         };
-    }, [location.search, user, openAuthPrompt]);
+    }, [location.search, user, openAuthPrompt, authLoading]);
     
+    // Clear interval if user logs in
+    useEffect(() => {
+        if (user && promptIntervalRef.current) {
+            clearInterval(promptIntervalRef.current);
+        }
+    }, [user]);
+
     const handleLike = useCallback((postId: string) => {
         if (!user) {
             openAuthPrompt();
             return;
         }
         const postRef = firebase.database().ref(`feed_posts/${postId}/likes/${user.uid}`);
-        postRef.once('value', snapshot => {
+        postRef.once('value').then(snapshot => {
             if (snapshot.exists()) {
                 postRef.remove();
             } else {
@@ -369,6 +477,48 @@ const FeedPage: React.FC = () => {
             }
         });
     }, [user, openAuthPrompt]);
+
+    const handleComment = useCallback((postId: string, text: string) => {
+        if (!user) return;
+        const commentData = {
+            uid: user.uid,
+            authorName: user.displayName || 'Anonymous',
+            authorPhotoURL: user.photoURL || null,
+            text: text,
+            timestamp: firebase.database.ServerValue.TIMESTAMP,
+        };
+        firebase.database().ref(`feed_posts/${postId}/comments`).push(commentData);
+    }, [user]);
+    
+    const handleDeleteComment = useCallback((postId: string, commentId: string) => {
+        if (!user) return;
+        const commentRef = firebase.database().ref(`feed_posts/${postId}/comments/${commentId}`);
+        commentRef.once('value').then(snapshot => {
+            if (snapshot.val()?.uid === user.uid) {
+                commentRef.remove();
+            }
+        });
+    }, [user]);
+
+    const handleDelete = useCallback((postId: string) => {
+        if (!user) {
+            openAuthPrompt();
+            return;
+        }
+        
+        const postRef = firebase.database().ref(`feed_posts/${postId}`);
+        postRef.once('value').then(snapshot => {
+            const post = snapshot.val();
+            if (post && post.uid === user.uid) {
+                if (window.confirm('Are you sure you want to delete this post?')) {
+                    postRef.remove()
+                        .then(() => addNotification('Post deleted.', 'success'))
+                        .catch(err => addNotification(`Error deleting post: ${err.message}`, 'error'));
+                }
+            }
+        });
+    }, [user, openAuthPrompt, addNotification]);
+
 
     const handleShare = useCallback(async (post: FeedPost) => {
         const shareUrl = `https://hanjla.vercel.app/#/feed?post=${post.id}`;
@@ -380,7 +530,6 @@ const FeedPage: React.FC = () => {
                     text: post.caption ? post.caption.substring(0, 100) + '...' : 'From Hanjla Harry',
                     url: shareUrl,
                 });
-                addNotification('Post shared!', 'success');
             } catch (error) {
                 console.log('Share was cancelled or failed', error);
             }
@@ -396,16 +545,15 @@ const FeedPage: React.FC = () => {
     }, [addNotification]);
 
 
-    if (loading) {
+    if (authLoading || loading) {
         return <div className="flex justify-center items-center py-20"><Spinner size="lg" /></div>;
     }
 
     return (
         <div className="max-w-2xl mx-auto space-y-6 pb-10">
             {user && <CreatePost />}
-            <h1 className="text-3xl font-bold text-gray-800 dark:text-white px-2">Community Feed</h1>
             {posts.length > 0 ? (
-                posts.map(post => <PostCard key={post.id} post={post} onLike={handleLike} onShare={handleShare} currentUser={user} />)
+                posts.map(post => <PostCard key={post.id} post={post} onLike={handleLike} onShare={handleShare} onDelete={handleDelete} onComment={handleComment} onDeleteComment={handleDeleteComment} currentUser={user} />)
             ) : (
                 <div className="text-center py-20 bg-white dark:bg-gray-800/50 rounded-lg shadow-md">
                     <h2 className="text-xl font-semibold">The feed is empty.</h2>
