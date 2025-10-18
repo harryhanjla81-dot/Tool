@@ -1,11 +1,13 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef, ChangeEvent } from 'react';
 import { useAuth } from './src/contexts/AuthContext.tsx';
 import { FeedPost } from './types.ts';
 import Spinner from './components/Spinner.tsx';
 import UserAvatar from './components/UserAvatar.tsx';
-import { ThumbsUpIcon, ChatBubbleIcon, ShareIcon } from './components/IconComponents.tsx';
+import { ThumbsUpIcon, ChatBubbleIcon, ShareIcon, AddImageIcon, CloseIcon } from './components/IconComponents.tsx';
 import { useNotification } from './src/contexts/NotificationContext.tsx';
 import { useAuthPrompt } from './src/contexts/AuthPromptContext.tsx';
+import { supabase } from './src/supabaseClient.ts';
+import { useLocation } from 'react-router-dom';
 
 // Local, self-contained Firebase type declaration to ensure stability.
 declare namespace firebase {
@@ -45,8 +47,8 @@ declare namespace firebase {
         remove(): Promise<void>;
         set(value: any): Promise<void>;
         push(value: any): Promise<DatabaseReference>;
-        // FIX: Corrected the return type of 'on' to match the callback's signature.
-        on(eventType: string, callback: (snapshot: any) => any, cancelCallbackOrContext?: ((error: Error) => void) | object | null, context?: object | null): (snapshot: any) => any;
+        // FIX: Corrected the 'on' method signature to remove ambiguity between the error callback and context object.
+        on(eventType: string, callback: (snapshot: any) => any, cancelCallback?: (error: Error) => any, context?: object | null): (snapshot: any) => any;
         off(eventType: string, callback?: (snapshot: any) => any): void;
         once(eventType: string): Promise<any>;
         orderByChild(path: string): DatabaseReference;
@@ -103,10 +105,21 @@ const timeAgo = (timestamp: number) => {
   return Math.floor(seconds) + " seconds ago";
 };
 
-const PostCard: React.FC<{ post: FeedPost; onLike: (postId: string) => void; currentUser: firebase.User | null; }> = ({ post, onLike, currentUser }) => {
+const PostCard: React.FC<{ post: FeedPost; onLike: (postId: string) => void; onShare: (post: FeedPost) => void; currentUser: firebase.User | null; }> = ({ post, onLike, onShare, currentUser }) => {
+    const { openAuthPrompt } = useAuthPrompt();
+    // FIX: Added useNotification hook to bring addNotification into scope.
+    const { addNotification } = useNotification();
     const isLiked = !!(currentUser && post.likes && post.likes[currentUser.uid]);
     const likeCount = Object.keys(post.likes || {}).length;
     const commentCount = Object.keys(post.comments || {}).length;
+    
+    const handleAction = (action: () => void) => {
+        if (!currentUser) {
+            openAuthPrompt();
+        } else {
+            action();
+        }
+    };
 
     return (
         <div className="bg-white dark:bg-gray-800 rounded-xl shadow-md border dark:border-gray-700/50 overflow-hidden">
@@ -134,15 +147,21 @@ const PostCard: React.FC<{ post: FeedPost; onLike: (postId: string) => void; cur
 
             <div className="flex border-t border-gray-200 dark:border-gray-700">
                 <button 
-                    onClick={() => onLike(post.id)}
+                    onClick={() => handleAction(() => onLike(post.id))}
                     className={`flex-1 flex items-center justify-center gap-2 p-3 hover:bg-gray-100 dark:hover:bg-gray-700/50 transition-colors font-semibold ${isLiked ? 'text-primary' : 'text-gray-600 dark:text-gray-300'}`}
                 >
                     <ThumbsUpIcon className="w-5 h-5" /> Like
                 </button>
-                 <button className="flex-1 flex items-center justify-center gap-2 p-3 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700/50 transition-colors font-semibold">
+                 <button 
+                    onClick={() => handleAction(() => addNotification("Commenting coming soon!", "info"))}
+                    className="flex-1 flex items-center justify-center gap-2 p-3 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700/50 transition-colors font-semibold"
+                 >
                     <ChatBubbleIcon className="w-5 h-5" /> Comment
                 </button>
-                 <button className="flex-1 flex items-center justify-center gap-2 p-3 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700/50 transition-colors font-semibold">
+                 <button 
+                    onClick={() => onShare(post)}
+                    className="flex-1 flex items-center justify-center gap-2 p-3 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700/50 transition-colors font-semibold"
+                 >
                     <ShareIcon className="w-5 h-5" /> Share
                 </button>
             </div>
@@ -150,6 +169,134 @@ const PostCard: React.FC<{ post: FeedPost; onLike: (postId: string) => void; cur
     );
 };
 
+const CreatePost: React.FC = () => {
+    const { user } = useAuth();
+    const { addNotification } = useNotification();
+    const [caption, setCaption] = useState('');
+    const [mediaFile, setMediaFile] = useState<File | null>(null);
+    const [mediaPreview, setMediaPreview] = useState<string | null>(null);
+    const [isPosting, setIsPosting] = useState(false);
+    const fileInputRef = useRef<HTMLInputElement>(null);
+    const [isFocused, setIsFocused] = useState(false);
+    const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+    const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (file) {
+            setMediaFile(file);
+            if (mediaPreview) URL.revokeObjectURL(mediaPreview);
+            setMediaPreview(URL.createObjectURL(file));
+        }
+    };
+
+    const handlePost = async () => {
+        if (!user || (!caption.trim() && !mediaFile)) return;
+        setIsPosting(true);
+        try {
+            let mediaUrl: string | undefined;
+            let mediaType: 'image' | 'video' | undefined;
+
+            if (mediaFile) {
+                const fileExt = mediaFile.name.split('.').pop()?.toLowerCase();
+                const filePath = `feed-media/${user.uid}/${Date.now()}.${fileExt}`;
+                const { error: uploadError } = await supabase.storage
+                    .from('feed-media')
+                    .upload(filePath, mediaFile);
+
+                if (uploadError) throw new Error(`Supabase upload error: ${uploadError.message}`);
+
+                const { data } = supabase.storage.from('feed-media').getPublicUrl(filePath);
+                mediaUrl = data.publicUrl;
+
+                if (['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(fileExt || '')) {
+                    mediaType = 'image';
+                } else if (['mp4', 'webm', 'mov'].includes(fileExt || '')) {
+                    mediaType = 'video';
+                }
+            }
+
+            const postData: Omit<FeedPost, 'id' | 'likes' | 'comments'> & { likes: Record<string, boolean> | 0 } = {
+                uid: user.uid,
+                authorName: user.displayName || 'Anonymous',
+                authorPhotoURL: user.photoURL || undefined,
+                caption: caption.trim(),
+                mediaUrl,
+                mediaType,
+                timestamp: Date.now(),
+                likes: 0 // Initialize likes as 0 as per Firebase rules
+            };
+
+            await firebase.database().ref('feed_posts').push(postData);
+
+            setCaption('');
+            setMediaFile(null);
+            if (mediaPreview) URL.revokeObjectURL(mediaPreview);
+            setMediaPreview(null);
+            if (fileInputRef.current) fileInputRef.current.value = '';
+            if (textareaRef.current) textareaRef.current.style.height = 'auto';
+
+            addNotification('Post created successfully!', 'success');
+
+        } catch (err: any) {
+            addNotification(`Failed to create post: ${err.message}`, 'error');
+        } finally {
+            setIsPosting(false);
+        }
+    };
+
+    useEffect(() => {
+        const textarea = textareaRef.current;
+        if (textarea) {
+            textarea.style.height = 'auto';
+            textarea.style.height = `${textarea.scrollHeight}px`;
+        }
+    }, [caption]);
+
+
+    return (
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-md p-4 mb-6 border dark:border-gray-700/50">
+            <div className="flex items-start gap-3">
+                <UserAvatar name={user?.displayName} photoURL={user?.photoURL} />
+                <div 
+                    className={`relative flex-grow border rounded-full transition-all duration-300 ease-in-out ${isFocused ? 'border-primary ring-2 ring-primary/20' : 'border-gray-300 dark:border-gray-600'} ${caption.split('\n').length > 1 || mediaPreview ? '!rounded-2xl' : ''}`}
+                >
+                    <textarea
+                        ref={textareaRef}
+                        value={caption}
+                        onChange={(e) => setCaption(e.target.value)}
+                        onFocus={() => setIsFocused(true)}
+                        onBlur={() => setIsFocused(false)}
+                        placeholder={`What's on your mind, ${user?.displayName?.split(' ')[0] || 'User'}?`}
+                        className="w-full bg-transparent p-3 pl-4 pr-12 focus:outline-none resize-none overflow-hidden"
+                        rows={1}
+                        style={{ outline: 'none !important', boxShadow: 'none !important' }}
+                    />
+                    <div className="absolute top-1/2 -translate-y-1/2 right-3">
+                         <button onClick={() => fileInputRef.current?.click()} className="p-2 text-gray-500 hover:text-primary rounded-full hover:bg-gray-100 dark:hover:bg-gray-700">
+                           <AddImageIcon className="w-6 h-6" />
+                         </button>
+                    </div>
+                </div>
+            </div>
+            {mediaPreview && (
+                <div className="mt-4 pl-12 relative">
+                    <img src={mediaPreview} alt="Preview" className="rounded-lg max-h-80 w-auto" />
+                     <button onClick={() => { setMediaFile(null); if (mediaPreview) URL.revokeObjectURL(mediaPreview); setMediaPreview(null); if (fileInputRef.current) fileInputRef.current.value = ''; }} className="absolute top-2 right-2 p-1 bg-black/50 text-white rounded-full">
+                        <CloseIcon className="w-4 h-4" />
+                    </button>
+                </div>
+            )}
+            {(caption || mediaFile) && (
+                <div className="flex justify-end mt-4">
+                    <button onClick={handlePost} disabled={isPosting} className="px-6 py-2 bg-primary text-primary-text font-semibold rounded-full disabled:opacity-50">
+                        {isPosting ? <Spinner size="sm" /> : 'Post'}
+                    </button>
+                </div>
+            )}
+            <input type="file" ref={fileInputRef} onChange={handleFileChange} accept="image/*,video/*" className="hidden" />
+        </div>
+    );
+};
 
 const FeedPage: React.FC = () => {
     const { user } = useAuth();
@@ -157,6 +304,8 @@ const FeedPage: React.FC = () => {
     const { addNotification } = useNotification();
     const [posts, setPosts] = useState<FeedPost[]>([]);
     const [loading, setLoading] = useState(true);
+    const location = useLocation();
+    const promptIntervalRef = useRef<number | null>(null);
 
     useEffect(() => {
         // Ensure firebase is initialized before using it.
@@ -172,9 +321,9 @@ const FeedPage: React.FC = () => {
                     .map(([key, value]: [string, any]) => ({
                         id: key,
                         ...value,
-                        likes: value.likes || {} // Ensure likes is an object
+                        likes: value.likes || {}
                     }))
-                    .sort((a, b) => b.timestamp - a.timestamp); // Sort descending by time
+                    .sort((a, b) => b.timestamp - a.timestamp);
                 setPosts(postsArray);
             } else {
                 setPosts([]);
@@ -188,6 +337,23 @@ const FeedPage: React.FC = () => {
 
         return () => feedRef.off('value', listener);
     }, [addNotification]);
+
+    useEffect(() => {
+        const params = new URLSearchParams(location.search);
+        const sharedPostId = params.get('post');
+        if (sharedPostId && !user) {
+            openAuthPrompt();
+            promptIntervalRef.current = window.setInterval(() => {
+                openAuthPrompt();
+            }, 20000);
+        }
+
+        return () => {
+            if (promptIntervalRef.current) {
+                clearInterval(promptIntervalRef.current);
+            }
+        };
+    }, [location.search, user, openAuthPrompt]);
     
     const handleLike = useCallback((postId: string) => {
         if (!user) {
@@ -197,12 +363,38 @@ const FeedPage: React.FC = () => {
         const postRef = firebase.database().ref(`feed_posts/${postId}/likes/${user.uid}`);
         postRef.once('value', snapshot => {
             if (snapshot.exists()) {
-                postRef.remove(); // Unlike
+                postRef.remove();
             } else {
-                postRef.set(true); // Like
+                postRef.set(true);
             }
         });
     }, [user, openAuthPrompt]);
+
+    const handleShare = useCallback(async (post: FeedPost) => {
+        const shareUrl = `https://hanjla.vercel.app/#/feed?post=${post.id}`;
+        
+        if (navigator.share) {
+            try {
+                await navigator.share({
+                    title: 'Check out this post!',
+                    text: post.caption ? post.caption.substring(0, 100) + '...' : 'From Hanjla Harry',
+                    url: shareUrl,
+                });
+                addNotification('Post shared!', 'success');
+            } catch (error) {
+                console.log('Share was cancelled or failed', error);
+            }
+        } else {
+            try {
+                await navigator.clipboard.writeText(shareUrl);
+                addNotification('Post link copied to clipboard!', 'success');
+            } catch (err) {
+                console.error('Failed to copy link: ', err);
+                addNotification('Could not copy link to clipboard.', 'error');
+            }
+        }
+    }, [addNotification]);
+
 
     if (loading) {
         return <div className="flex justify-center items-center py-20"><Spinner size="lg" /></div>;
@@ -210,13 +402,14 @@ const FeedPage: React.FC = () => {
 
     return (
         <div className="max-w-2xl mx-auto space-y-6 pb-10">
-            <h1 className="text-3xl font-bold text-gray-800 dark:text-white">Community Feed</h1>
+            {user && <CreatePost />}
+            <h1 className="text-3xl font-bold text-gray-800 dark:text-white px-2">Community Feed</h1>
             {posts.length > 0 ? (
-                posts.map(post => <PostCard key={post.id} post={post} onLike={handleLike} currentUser={user} />)
+                posts.map(post => <PostCard key={post.id} post={post} onLike={handleLike} onShare={handleShare} currentUser={user} />)
             ) : (
                 <div className="text-center py-20 bg-white dark:bg-gray-800/50 rounded-lg shadow-md">
                     <h2 className="text-xl font-semibold">The feed is empty.</h2>
-                    <p className="mt-2 text-gray-500 dark:text-gray-400">There are no posts to show right now.</p>
+                    <p className="mt-2 text-gray-500 dark:text-gray-400">Be the first to create a post!</p>
                 </div>
             )}
         </div>

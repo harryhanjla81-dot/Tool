@@ -40,8 +40,8 @@ declare namespace firebase {
         remove(): Promise<void>;
         set(value: any): Promise<void>;
         push(value: any): Promise<DatabaseReference>;
-        // FIX: Corrected the return type of 'on' to match the callback's signature.
-        on(eventType: string, callback: (snapshot: any) => any, cancelCallbackOrContext?: ((error: Error) => void) | object | null, context?: object | null): (snapshot: any) => any;
+        // FIX: Corrected the 'on' method signature to remove ambiguity between the error callback and context object.
+        on(eventType: string, callback: (snapshot: any) => any, cancelCallback?: (error: Error) => any, context?: object | null): (snapshot: any) => any;
         off(eventType: string, callback?: (snapshot: any) => any): void;
         once(eventType: string): Promise<any>;
         orderByChild(path: string): DatabaseReference;
