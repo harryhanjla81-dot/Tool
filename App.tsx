@@ -74,19 +74,6 @@ const AppContent: React.FC = () => (
 );
 
 const App: React.FC = () => {
-  useEffect(() => {
-    if ('serviceWorker' in navigator) {
-      // Register the service worker from the root of the site. This is required for Firebase Cloud Messaging.
-      const swUrl = '/firebase-messaging-sw.js';
-      navigator.serviceWorker.register(swUrl)
-        .then(registration => {
-          console.log('Service Worker registered successfully:', registration);
-        }).catch(err => {
-          console.error('Service Worker registration failed:', err);
-        });
-    }
-  }, []);
-  
   return (
     <>
       <div id="export-board" style={{ position: 'fixed', left: '-9999px', top: '-9999px', width: '1080px', height: '1080px' }}></div>

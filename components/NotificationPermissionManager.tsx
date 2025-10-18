@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../src/contexts/AuthContext.tsx';
 import { useNotification } from '../src/contexts/NotificationContext.tsx';
+import { getMessaging, getToken, onMessage } from 'firebase/messaging';
 
 // This is required to use the firebase global object from the script tag in index.html
 declare const firebase: any;
@@ -16,13 +17,24 @@ const NotificationPermissionManager: React.FC = () => {
         }
 
         try {
-            const messaging = firebase.messaging();
+            // The compat script already initialized the app, so we can get it.
+            const app = firebase.app();
+            const messaging = getMessaging(app);
             
+            // Register the service worker with the recommended scope
+            const swReg = await navigator.serviceWorker.register('/firebase-messaging-sw.js', {
+                scope: '/firebase-cloud-messaging-push-scope',
+            });
+
             // IMPORTANT: You need to generate this key in your Firebase project settings
             // Go to Project Settings > Cloud Messaging > Web configuration > Generate key pair
             const vapidKey = "YOUR_VAPID_KEY_HERE"; // <---- PASTE YOUR VAPID KEY HERE
 
-            const token = await messaging.getToken({ vapidKey: vapidKey });
+            // Get token using the modular SDK, passing the registration and VAPID key
+            const token = await getToken(messaging, { 
+                vapidKey: vapidKey,
+                serviceWorkerRegistration: swReg
+            });
             
             if (token) {
                 // Save the token to the Realtime Database under the user's profile
@@ -31,22 +43,24 @@ const NotificationPermissionManager: React.FC = () => {
                 console.log('FCM Token stored successfully.');
 
                 // Handle incoming messages when the app is in the foreground
-                messaging.onMessage((payload: any) => {
+                onMessage(messaging, (payload: any) => {
                     console.log('Message received in foreground.', payload);
-                    addNotification(
-                        `${payload.notification.title}\n${payload.notification.body}`,
-                        'info',
-                        10000 // Show for 10 seconds
-                    );
+                    if (payload.notification) {
+                        addNotification(
+                            `${payload.notification.title}\n${payload.notification.body}`,
+                            'info',
+                            10000 // Show for 10 seconds
+                        );
+                    }
                 });
 
             } else {
                 console.warn('No registration token available. Request permission to generate one.');
                 addNotification('Could not get notification token. Please try again.', 'error');
             }
-        } catch (err) {
+        } catch (err: any) {
             console.error('An error occurred while retrieving token. ', err);
-            addNotification(`Notification setup failed: ${err}`, 'error');
+            addNotification(`Notification setup failed: ${err.message}`, 'error');
         }
     }, [user, addNotification]);
 

@@ -1,7 +1,8 @@
 // Import the Firebase app and messaging scripts.
 // These must be available in your public/ directory or served from a CDN.
-importScripts("https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js");
-importScripts("https://www.gstatic.com/firebasejs/8.10.1/firebase-messaging.js");
+importScripts("https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js");
+importScripts("https://www.gstatic.com/firebasejs/10.13.0/firebase-messaging-compat.js");
+
 
 // IMPORTANT: This configuration is public and safe to be in the client.
 // It's the same config used to initialize Firebase in your main application.
