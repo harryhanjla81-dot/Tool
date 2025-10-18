@@ -79,27 +79,27 @@ const App: React.FC = () => {
       <div id="export-board" style={{ position: 'fixed', left: '-9999px', top: '-9999px', width: '1080px', height: '1080px' }}></div>
       <NotificationProvider>
         <AuthProvider>
-          <AuthPromptProvider>
-            <ThemeProvider>
-              <SidebarProvider>
-                <ApiKeysProvider>
-                  <SettingsProvider>
-                    <FacebookPageProvider>
-                      <ConfirmationProvider>
-                        <HashRouter>
+          <ThemeProvider>
+            <SidebarProvider>
+              <ApiKeysProvider>
+                <SettingsProvider>
+                  <FacebookPageProvider>
+                    <ConfirmationProvider>
+                      <HashRouter>
+                        <AuthPromptProvider>
                           <Routes>
                             <Route path="/login" element={<LoginPage />} />
                             <Route path="/signup" element={<SignupPage />} />
                             <Route path="/*" element={<AppContent />} />
                           </Routes>
-                        </HashRouter>
-                      </ConfirmationProvider>
-                    </FacebookPageProvider>
-                  </SettingsProvider>
-                </ApiKeysProvider>
-              </SidebarProvider>
-            </ThemeProvider>
-          </AuthPromptProvider>
+                        </AuthPromptProvider>
+                      </HashRouter>
+                    </ConfirmationProvider>
+                  </FacebookPageProvider>
+                </SettingsProvider>
+              </ApiKeysProvider>
+            </SidebarProvider>
+          </ThemeProvider>
         </AuthProvider>
       </NotificationProvider>
     </>

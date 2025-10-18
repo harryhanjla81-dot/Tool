@@ -40,8 +40,8 @@ declare namespace firebase {
         remove(): Promise<void>;
         set(value: any): Promise<void>;
         push(value: any): Promise<DatabaseReference>;
-        // FIX: Added ((error: Error) => void) to the type of cancelCallbackOrContext to allow for a failure callback.
-        on(eventType: string, callback: (snapshot: any) => any, cancelCallbackOrContext?: ((error: Error) => void) | object | null, context?: object | null): (a: any | null, b?: string) => any;
+        // FIX: Corrected the return type of 'on' to match the callback's signature.
+        on(eventType: string, callback: (snapshot: any) => any, cancelCallbackOrContext?: ((error: Error) => void) | object | null, context?: object | null): (snapshot: any) => any;
         off(eventType: string, callback?: (snapshot: any) => any): void;
         once(eventType: string): Promise<any>;
         orderByChild(path: string): DatabaseReference;
@@ -104,7 +104,8 @@ const CommunityChatPage: React.FC = () => {
             const $cancelReply = document.getElementById('cancelReply') as HTMLButtonElement;
             let currentRoom = 'global';
             let messagesRef: any | null = null;
-            let listener: ((a: any | null, b?: string) => any) | null = null;
+            // FIX: Updated listener type to be compatible with the corrected 'on' method's return type.
+            let listener: ((snapshot: any) => any) | null = null;
             let typingRef: any | null = null;
             let userPresenceRef: any | null = null;
             let typingTimer: ReturnType<typeof setTimeout> | null = null;
