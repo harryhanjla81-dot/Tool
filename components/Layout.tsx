@@ -1,6 +1,6 @@
 import React, { useState, useEffect, ReactNode, useRef, useLayoutEffect, useCallback } from 'react';
 // Using named import for NavLink from react-router-dom to resolve module export error.
-import { NavLink } from 'react-router-dom';
+import { NavLink, useLocation } from 'react-router-dom';
 import { FeedIcon, DocumentTextIcon, UploadIcon, ClipboardListIcon, CrossPostIcon, ChatBubbleLeftRightIcon, ShieldCheckIcon, UserGroupIcon, InformationCircleIcon, LockClosedIcon, ChatBubbleBottomCenterTextIcon, CurrencyDollarIcon, ArrowLeftOnRectangleIcon, MenuIcon, Cog6ToothIcon, BellIcon, ChevronDownIcon, CheckCircleIcon } from './IconComponents.tsx';
 import { useSidebar, usePageActions } from '../src/contexts/SidebarContext.tsx';
 import { useAuth } from '../src/contexts/AuthContext.tsx';
@@ -90,7 +90,8 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   const { headerActions } = usePageActions();
   const { isModalOpen: isApiKeysModalOpen, toggleModal: closeApiKeysModal } = useApiKeys();
   const [isLocalSettingsModalOpen, setLocalIsSettingsModalOpen] = useState(false);
-  
+  const location = useLocation();
+
   const isEffectivelyOpen = isApiKeysModalOpen || isLocalSettingsModalOpen;
   
   const closeModal = () => {
@@ -101,6 +102,15 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   // Refs to manage sidebar scroll position
   const sidebarScrollContainerRef = useRef<HTMLDivElement>(null);
   const lastScrollPositionRef = useRef<number>(0);
+
+  // Close sidebar on location change (i.e., navigation) on mobile
+  useEffect(() => {
+      // The sidebar is an overlay below the 'lg' breakpoint (1024px)
+      if (isSidebarOpen && window.innerWidth < 1024) {
+          toggleSidebar();
+      }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.pathname]);
 
   // Handler to save the scroll position to a ref whenever the user scrolls
   const handleScroll = useCallback(() => {

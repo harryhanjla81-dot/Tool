@@ -19,7 +19,6 @@ import PricingPage from './PricingPage.tsx'; // New: Pricing Page
 import LoginPage from './LoginPage.tsx'; // New: Login Page
 import SignupPage from './SignupPage.tsx'; // New: Signup Page
 import FeedPage from './FeedPage.tsx'; // New: Feed Page
-import LicenseGate from './LicenseGate.tsx';
 import { SidebarProvider, PageActionProvider } from './src/contexts/SidebarContext.tsx';
 import { NotificationProvider } from './src/contexts/NotificationContext.tsx';
 import { SettingsProvider } from './src/contexts/SettingsContext.tsx';
@@ -95,9 +94,7 @@ const App: React.FC = () => {
                             path="/*"
                             element={
                               <ProtectedRoute>
-                                <LicenseGate>
-                                  <AuthenticatedApp />
-                                </LicenseGate>
+                                <AuthenticatedApp />
                               </ProtectedRoute>
                             }
                           />

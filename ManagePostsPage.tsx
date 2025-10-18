@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import Spinner from './components/Spinner.tsx';
 import { TrashIcon, ThumbsUpIcon, ChatBubbleIcon, EyeIcon, CloseIcon, GenerateIcon, ChevronDownIcon, DownloadIcon } from './components/IconComponents.tsx';
 import * as geminiService from './services/geminiService.ts';
@@ -20,9 +21,15 @@ type PostSortKey = 'default' | 'likes' | 'comments' | 'reach';
 // --- MAIN CONTENT COMPONENT ---
 const ManagePostsContent: React.FC<{ activePage: FBPage; onAuthError: () => void; }> = ({ activePage, onAuthError }) => {
     const { addNotification } = useNotification();
+    const location = useLocation();
+    const navigate = useNavigate();
     
     // Post Management State
-    const [postTypeToShow, setPostTypeToShow] = useState<'published' | 'scheduled'>('published');
+    const postTypeToShow = useMemo(() => {
+        const hash = location.hash.replace('#', '');
+        return hash === 'scheduled' ? 'scheduled' : 'published';
+    }, [location.hash]);
+
     const [publishedPosts, setPublishedPosts] = useState<ManagedPost[]>([]);
     const [scheduledPosts, setScheduledPosts] = useState<ManagedPost[]>([]);
     const [isFetchingPosts, setIsFetchingPosts] = useState(false);
@@ -600,7 +607,10 @@ const ManagePostsContent: React.FC<{ activePage: FBPage; onAuthError: () => void
     return (
         <div className="space-y-6">
             <div className="flex justify-between items-center flex-wrap gap-4">
-                <div className="flex rounded-lg shadow-sm"><button onClick={() => setPostTypeToShow('published')} className={`px-4 py-2 rounded-l-lg text-sm font-medium transition-colors ${postTypeToShow === 'published' ? 'bg-primary text-primary-text' : 'bg-gray-100 text-gray-800 dark:text-gray-200 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600'}`}>Published ({publishedPosts.length})</button><button onClick={() => setPostTypeToShow('scheduled')} className={`px-4 py-2 rounded-r-lg text-sm font-medium transition-colors ${postTypeToShow === 'scheduled' ? 'bg-primary text-primary-text' : 'bg-gray-100 text-gray-800 dark:text-gray-200 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600'}`}>Scheduled ({scheduledPosts.length})</button></div>
+                <div className="flex rounded-lg shadow-sm">
+                    <button onClick={() => navigate('#published')} className={`px-4 py-2 rounded-l-lg text-sm font-medium transition-colors ${postTypeToShow === 'published' ? 'bg-primary text-primary-text' : 'bg-gray-100 text-gray-800 dark:text-gray-200 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600'}`}>Published ({publishedPosts.length})</button>
+                    <button onClick={() => navigate('#scheduled')} className={`px-4 py-2 rounded-r-lg text-sm font-medium transition-colors ${postTypeToShow === 'scheduled' ? 'bg-primary text-primary-text' : 'bg-gray-100 text-gray-800 dark:text-gray-200 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600'}`}>Scheduled ({scheduledPosts.length})</button>
+                </div>
                 <div className="flex items-center gap-4 flex-wrap">
                     {(postTypeToShow === 'published' ? nextPageUrl : nextScheduledPageUrl) && !isFetchingPosts && (
                         <button 

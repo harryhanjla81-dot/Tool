@@ -7,7 +7,7 @@ const PrivacyPolicyPage: React.FC = () => {
     const pClasses = "mb-4 leading-relaxed";
     const ulClasses = "list-disc list-inside space-y-2 mb-4 pl-4";
     const liClasses = "text-gray-600 dark:text-gray-400";
-    const appName = "Copy of Copy of Hanjla Harry"; // Exact name from Meta dashboard
+    const appName = "Hanjla Harry"; // Exact name from Meta dashboard
 
     return (
         <div className="p-4 md:p-6 lg:p-8 bg-gray-50 dark:bg-gray-900 min-h-screen">

@@ -1,4 +1,5 @@
 import React, { useState, useCallback, useEffect, useMemo } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useNotification } from './src/contexts/NotificationContext.tsx';
 import * as geminiService from './services/geminiService.ts';
 import Spinner from './components/Spinner.tsx';
@@ -10,7 +11,7 @@ import { FBPage, ManagedPost, PageInsightsSummary, InsightDataPoint, TopEngaging
 
 // --- CONSTANTS & TYPES ---
 const API_VERSION = 'v19.0';
-const HINDI_STOPWORDS = new Set(['मैं','मुझको','मेरा','अपने',' हमने','हमारा','आपका','आपके','उनका','वे','यह','वह','जो','तो','से','में','पर','और','है','हैं','था','थे','थी','गया','गई','गए','किया','कर','रਹਾ',' रही','रहे','हुआ','हुई','हुए','लिये','लिए','एक','इस','उस','को','क्या','कैसे','क्यों','कौन','किस','किसी','किधर','कोई','कुछ','अभी','कभी','सभी','तब','जब','यहां','वहां','कहां','किंतु','परंतु','क्योंकि','इसलिए','आदि','इत्यादि','द्वारा','की','के',' का','एवं','तथा','यदि','अगर']);
+const HINDI_STOPWORDS = new Set(['मैं',' मुझको','मेरा','अपने','हमने','हमारा','आपका','आपके','उनका','वे','यह','वह','जो','तो','से','में','पर','और','है','हैं','था','थे','थी','गया','गई','गए','किया','कर','रहा','रही','रहे','हुआ','हुई','हुए','लिये','लिए','एक','इस','उस','को','क्या','कैसे','क्यों','कौन','किस','किसी','किधर','कोई','कुछ','अभी','कभी','सभी','तब','जब','यहां','वहां','कहां','किंतु','परंतु','क्योंकि','इसलिए','आदि','इत्यादि','द्वारा','की','के',' का','एवं','तथा','यदि','अगर']);
 const ENGLISH_STOPWORDS = new Set(['i','me','my','myself','we','our','ours','ourselves','you','your','yours','yourself','yourselves','he','him','his','himself','she','her','herself','it','its','itself','they','them','their','theirs','themselves','what','which','who','whom','this','that','these','those','am','is','are','was','were','be','been','being','have','has','had','having','do','does','did','doing','a','an','the','and','but','if','or','because','as','until','while','of','at','by','for','with','about','against','between','into','through','during','before','after','above','below','to','from','up','down','in','out','on','off','over','under','again','further','then','once','here','there','when','where','why','how','all','any','both','each','few','more','most','other','some','such','no','nor','not','only','own','same','so','than','too','very','s','t','can','will','just','don','should','now']);
 
 interface LoyalUser {
@@ -71,7 +72,16 @@ const FollowerGrowthChart: React.FC<{ data: InsightDataPoint[] }> = ({ data }) =
 const AudienceInsightsPage: React.FC = () => {
     const { addNotification } = useNotification();
     const { isAuthenticated, activePage, logout } = useFacebookPage();
-    const [activeTab, setActiveTab] = useState<'insights' | 'topics' | 'audience'>('insights');
+    const location = useLocation();
+    const navigate = useNavigate();
+
+    const activeTab = useMemo(() => {
+        const hash = location.hash.replace('#', '');
+        if (['insights', 'topics', 'audience'].includes(hash)) {
+            return hash as 'insights' | 'topics' | 'audience';
+        }
+        return 'insights';
+    }, [location.hash]);
     
     // Date Range State for Insights
     const [dateRange, setDateRange] = useState(() => {
@@ -389,7 +399,7 @@ const AudienceInsightsPage: React.FC = () => {
     }
 
     const TabButton: React.FC<{ tabId: 'insights' | 'topics' | 'audience'; children: React.ReactNode; }> = ({ tabId, children }) => (
-         <button onClick={() => setActiveTab(tabId)} className={`px-4 py-2 rounded-t-lg text-sm font-medium transition-colors ${activeTab === tabId ? 'bg-primary text-primary-text' : 'bg-gray-100 text-gray-800 dark:text-gray-200 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600'}`}>
+         <button onClick={() => navigate(`#${tabId}`)} className={`px-4 py-2 rounded-t-lg text-sm font-medium transition-colors ${activeTab === tabId ? 'bg-primary text-primary-text' : 'bg-gray-100 text-gray-800 dark:text-gray-200 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600'}`}>
             {children}
         </button>
     );

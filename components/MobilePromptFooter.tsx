@@ -10,9 +10,10 @@ interface MobilePromptFooterProps {
     onToggleControls: () => void;
     contentManager: any; // Simplified
     isLoading: boolean;
+    isControlsToolbarOpen: boolean;
 }
 
-const MobilePromptFooter: React.FC<MobilePromptFooterProps> = ({ onToggleControls, contentManager, isLoading }) => {
+const MobilePromptFooter: React.FC<MobilePromptFooterProps> = ({ onToggleControls, contentManager, isLoading, isControlsToolbarOpen }) => {
     const { handleGenerateContent, handleRecreateFromImage, handleGenerateViralPostFromTopic } = contentManager;
     const { addNotification } = useNotification();
     
@@ -107,7 +108,7 @@ const MobilePromptFooter: React.FC<MobilePromptFooterProps> = ({ onToggleControl
 
     return (
         <>
-            <div className="fixed bottom-4 right-4 z-40 flex flex-col items-end gap-4 lg:hidden">
+            <div className={`fixed bottom-4 right-4 z-40 flex flex-col items-end gap-4 lg:hidden transition-transform duration-300 ease-in-out ${isControlsToolbarOpen ? '-translate-y-[92px]' : 'translate-y-0'}`}>
                 <button 
                     onClick={() => setIsAiPanelOpen(true)}
                     className="w-16 h-16 rounded-full bg-gradient-to-br from-purple-600 to-pink-500 text-white shadow-lg flex items-center justify-center transform transition-transform hover:scale-110"

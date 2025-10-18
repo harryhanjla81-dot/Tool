@@ -375,6 +375,7 @@ const MainAppPage: React.FC = () => {
                 onToggleControls={() => setIsMobileControlsOpen(prev => !prev)}
                 contentManager={contentManager}
                 isLoading={contentManager.isLoading}
+                isControlsToolbarOpen={isMobileControlsOpen}
             />
 
             {isMobileControlsOpen && (
